@@ -1,70 +1,28 @@
-# config.conf - Configuration file for Mac Mini server setup
+# config.conf - Configuration file for Mac Mini dev server setup
 #
-# Copy this file to config.conf and edit these values before running the setup scripts
-#
+# Copy this file to config.conf and edit before running setup scripts
 
 # Server identity
-SERVER_NAME="MACMINI"
-OPERATOR_USERNAME="operator"
+SERVER_NAME="macmini"
 
 # 1Password configuration
 ONEPASSWORD_VAULT="personal"
-ONEPASSWORD_OPERATOR_ITEM="Mac Mini operator"
-ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine NAS"
-ONEPASSWORD_PLEX_NAS_ITEM="Plex NAS"
 ONEPASSWORD_APPLEID_ITEM="Apple"
-ONEPASSWORD_OPENSUBTITLES_ITEM="Opensubtitles"
+ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine NAS"
+SSH_KEY_ITEM="SSH Keys"
 
 # Monitoring
 MONITORING_EMAIL="your-email@example.com"
 
-# Media NAS configuration
-NAS_HOSTNAME="nas.local"
-NAS_USERNAME="plex"
-NAS_SHARE_NAME="DSMedia"
-
-# Plex migration configuration (optional)
-# If migrating from an existing Plex server, specify the source hostname
-# Leave empty to prompt during setup or use --migrate-from command line option
-PLEX_MIGRATE_FROM=""  # e.g., "old-server.local"
-
-# Dropbox configuration (optional)
-# If you want to sync a specific Dropbox folder to the server
-DROPBOX_SYNC_FOLDER=""               # Dropbox folder to sync (e.g., "Private/ServerSync")
-DROPBOX_LOCAL_PATH=""                # Local path where to sync (default: ~/.local/sync/dropbox)
-DROPBOX_SYNC_INTERVAL="30"           # Sync interval in minutes (default: 30)
-
-# FileBot license file (optional)
-FILEBOT_LICENSE_FILE=""
-  # Absolute path on the source machine (where you are running prep-airdrop)
-  # to your FileBot license file
-
-# Catch feeds URL (optional)
-CATCH_FEEDS_URL=""
-  # from ShowRSS or your preferred RSS provider
-# Catch history cutoff (optional)
-CATCH_HISTORY_CUTOFF_DAYS="7"
-  # Number of days back to prevent re-downloading old torrents
-  # Set to 0 to disable history cutoff (will download all available)
+# Development configuration
+DOTFILES_REPO="git@github.com:smartwatermelon/dotfiles.git"
+ANDROID_SDK_VERSION="34"
+NODE_VERSION="lts"
+XCODE_VERSION=""  # Empty = latest from App Store
 
 # Terminal configuration (optional)
-# These settings improve terminal accessibility with better colors and fonts
-TERMINAL_PROFILE_FILE=""  # Terminal.app profile file (.terminal format)
-USE_ITERM2="false"        # Set to "true" to copy complete iTerm2 preferences from development machine
-  # When USE_ITERM2 is "true", your entire iTerm2 configuration (profiles, settings, etc.)
-  # will be copied to the server during prep-airdrop and imported during first-boot
-  # Set TERMINAL_PROFILE_FILE for Terminal.app profile, or leave empty to skip
+TERMINAL_PROFILE_FILE=""
+USE_ITERM2="false"
 
-# VPN and Transmission configuration (optional)
-# VPN monitor deploys automatically with transmission-setup.sh
-# The kill-switch (Stage 4) is configured separately via setup-vpn-killswitch.sh
-
-# Catch magnet handling (optional)
-# Set to "false" to have Catch download .torrent files instead of using magnet links
-# Required for Stage 4 (daemon mode) since daemon can't handle URL scheme magnet links
-CATCH_USE_MAGNETS="true"
-  # "true" = Catch passes magnet links to Transmission.app (Stage 2, GUI mode)
-  # "false" = Catch downloads .torrent files to watch directory (Stage 4, daemon mode)
-
-# Optional overrides (leave empty to use defaults)
-HOSTNAME_OVERRIDE=""  # If different from SERVER_NAME
+# Optional overrides
+HOSTNAME_OVERRIDE=""
