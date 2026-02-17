@@ -2,7 +2,7 @@
 #
 # setup-bash-configuration.sh - Bash configuration setup module
 #
-# This script installs comprehensive bash configuration for both administrator and operator users.
+# This script installs comprehensive bash configuration for the administrator user.
 # It sets up per-user configuration directories, symlinks, and profile redirectors for
 # consistent bash environment across both accounts.
 #
@@ -147,7 +147,7 @@ check_success() {
 #
 
 # Install Bash Configuration
-set_section "Installing Bash Configuration for Administrator and Operator"
+set_section "Installing Bash Configuration for Administrator"
 
 # Check if bash configuration is available in setup package
 BASH_CONFIG_SOURCE="${SETUP_DIR}/bash"
@@ -240,13 +240,6 @@ if [[ -d "${BASH_CONFIG_SOURCE}" ]]; then
 
   # Install for Administrator
   install_bash_config_for_user "${ADMIN_USERNAME}" "/Users/${ADMIN_USERNAME}"
-
-  # Install for Operator (if configured and account exists)
-  if [[ -n "${OPERATOR_USERNAME:-}" ]] && dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-    install_bash_config_for_user "${OPERATOR_USERNAME}" "/Users/${OPERATOR_USERNAME}"
-  else
-    log "Operator account not configured or not found - skipping bash config installation for operator"
-  fi
 
   check_success "Bash configuration installation"
 else

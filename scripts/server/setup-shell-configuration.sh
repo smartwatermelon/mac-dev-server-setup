@@ -2,8 +2,8 @@
 #
 # setup-shell-configuration.sh - Shell configuration module
 #
-# This script changes the default shell to Homebrew bash for both admin and
-# operator users. It adds Homebrew bash to /etc/shells, updates user shells,
+# This script changes the default shell to Homebrew bash for the admin
+# user. It adds Homebrew bash to /etc/shells, updates the user shell,
 # and sets up profile compatibility for bash by copying .zprofile to .profile.
 #
 # Usage: ./setup-shell-configuration.sh [--force]
@@ -51,9 +51,6 @@ fi
 ADMIN_USERNAME=$(whoami)
 HOSTNAME="${HOSTNAME_OVERRIDE:-${SERVER_NAME}}"
 HOSTNAME_LOWER="$(tr '[:upper:]' '[:lower:]' <<<"${HOSTNAME}")"
-# Set fallback for OPERATOR_USERNAME if not defined in config
-OPERATOR_USERNAME="${OPERATOR_USERNAME:-operator}"
-
 # Set up logging
 LOG_DIR="${HOME}/.local/state"
 LOG_FILE="${LOG_DIR}/${HOSTNAME_LOWER}-setup.log"
@@ -165,24 +162,11 @@ configure_shell() {
     sudo -p "[Shell setup] Enter password to change admin shell: " chsh -s "${HOMEBREW_BASH}" "${ADMIN_USERNAME}"
     check_success "Admin user shell change"
 
-    # Change shell for operator user if it exists
-    if dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-      log "Setting shell to Homebrew bash for operator user"
-      sudo -p "[Shell setup] Enter password to change operator shell: " chsh -s "${HOMEBREW_BASH}" "${OPERATOR_USERNAME}"
-      check_success "Operator user shell change"
-    fi
-
     # Copy .zprofile to .profile for bash compatibility
     log "Setting up bash profile compatibility"
     if [[ -f "/Users/${ADMIN_USERNAME}/.zprofile" ]]; then
       log "Copying admin .zprofile to .profile for bash compatibility"
       cp "/Users/${ADMIN_USERNAME}/.zprofile" "/Users/${ADMIN_USERNAME}/.profile"
-    fi
-
-    if dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-      log "Copying operator .zprofile to .profile for bash compatibility"
-      sudo -p "[Shell setup] Enter password to copy operator profile: " cp "/Users/${OPERATOR_USERNAME}/.zprofile" "/Users/${OPERATOR_USERNAME}/.profile" 2>/dev/null || true
-      sudo chown "${OPERATOR_USERNAME}:staff" "/Users/${OPERATOR_USERNAME}/.profile" 2>/dev/null || true
     fi
 
     check_success "Bash profile compatibility setup"
