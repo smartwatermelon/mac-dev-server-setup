@@ -4,7 +4,7 @@
 #
 # This script configures Time Machine backup with SMB destinations using credentials
 # stored in the keychain. It handles URL configuration, credential retrieval,
-# destination setup, and menu bar integration for both admin and operator users.
+# destination setup, and menu bar integration for the admin user.
 #
 # Usage: ./setup-timemachine.sh [--force]
 #   --force: Skip all confirmation prompts
@@ -220,10 +220,6 @@ if [[ -f "${TIMEMACHINE_CONFIG_FILE}" ]]; then
             defaults write com.apple.systemuiserver menuExtras -array-add "/System/Library/CoreServices/Menu Extras/TimeMachine.menu"
             NEED_SYSTEMUI_RESTART=true
             check_success "Time Machine menu bar addition"
-            if [[ -n "${OPERATOR_USERNAME:-}" ]] && dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-              sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.systemuiserver menuExtras -array-add "/System/Library/CoreServices/Menu Extras/TimeMachine.menu"
-              check_success "Time Machine menu bar addition for operator"
-            fi
           else
             log "Configuring Time Machine destination: ${TM_URL}"
             # Construct the full SMB URL with credentials
@@ -242,10 +238,6 @@ if [[ -f "${TIMEMACHINE_CONFIG_FILE}" ]]; then
                 defaults write com.apple.systemuiserver menuExtras -array-add "/System/Library/CoreServices/Menu Extras/TimeMachine.menu"
                 NEED_SYSTEMUI_RESTART=true
                 check_success "Time Machine menu bar addition"
-                if [[ -n "${OPERATOR_USERNAME:-}" ]] && dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-                  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.systemuiserver menuExtras -array-add "/System/Library/CoreServices/Menu Extras/TimeMachine.menu"
-                  check_success "Time Machine menu bar addition for operator"
-                fi
               else
                 collect_error "Failed to enable Time Machine"
               fi

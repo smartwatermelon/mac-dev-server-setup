@@ -4,7 +4,7 @@
 #
 # This script configures terminal applications with custom profiles for better
 # accessibility and visibility. Imports user-specified profiles and sets them
-# as defaults for both admin and operator users to ensure consistent terminal
+# as defaults for the admin user to ensure consistent terminal
 # appearance across all sessions.
 #
 # Usage: ./setup-terminal-profiles.sh [--force]
@@ -46,9 +46,6 @@ fi
 ADMIN_USERNAME=$(whoami)
 HOSTNAME="${HOSTNAME_OVERRIDE:-${SERVER_NAME}}"
 HOSTNAME_LOWER="$(tr '[:upper:]' '[:lower:]' <<<"${HOSTNAME}")"
-# Set fallback for OPERATOR_USERNAME if not defined in config
-OPERATOR_USERNAME="${OPERATOR_USERNAME:-operator}"
-
 # Set up logging
 LOG_DIR="${HOME}/.local/state"
 LOG_FILE="${LOG_DIR}/${HOSTNAME_LOWER}-setup.log"
@@ -195,13 +192,12 @@ import_terminal_profile_for_user() {
 
   log "Configuring Terminal profile '${profile_name}' for user: ${username}"
 
-  if [[ "${username}" == "${ADMIN_USERNAME}" ]]; then
-    # Import for current admin user - direct registration
-    log "Opening Terminal profile to import settings..."
+  # Import for current admin user - direct registration
+  log "Opening Terminal profile to import settings..."
 
-    # Use AppleScript to safely manage windows without closing the calling script's window
-    local applescript_result
-    applescript_result=$(osascript -e "
+  # Use AppleScript to safely manage windows without closing the calling script's window
+  local applescript_result
+  applescript_result=$(osascript -e "
 tell application \"Terminal\"
     -- Save reference to current window (the one running the script)
     set current_window to front window
@@ -234,57 +230,32 @@ tell application \"Terminal\"
 end tell
 ")
 
-    if [[ "${applescript_result}" == "success" ]]; then
-      log "Successfully imported Terminal profile and restored calling window focus"
+  if [[ "${applescript_result}" == "success" ]]; then
+    log "Successfully imported Terminal profile and restored calling window focus"
 
-      # Set as default and startup profile
-      defaults write com.apple.Terminal "Default Window Settings" -string "${profile_name}"
-      defaults write com.apple.Terminal "Startup Window Settings" -string "${profile_name}"
+    # Set as default and startup profile
+    defaults write com.apple.Terminal "Default Window Settings" -string "${profile_name}"
+    defaults write com.apple.Terminal "Startup Window Settings" -string "${profile_name}"
 
-      local new_default
-      new_default=$(defaults read com.apple.Terminal "Default Window Settings")
-      if [[ ${new_default} != "${profile_name}" ]]; then
-        collect_error "Failed to set ${profile_name} as Default profile for ${username}"
-      fi
-
-      local new_startup
-      new_startup=$(defaults read com.apple.Terminal "Startup Window Settings")
-      if [[ ${new_startup} != "${profile_name}" ]]; then
-        collect_error "Failed to set ${profile_name} as Startup profile for ${username}"
-      fi
-
-      log "Successfully imported Terminal profile for ${username}"
-      log "New profile will be active in next Terminal session"
-      return 0
-    else
-      log "AppleScript window management failed: ${applescript_result}"
-      collect_error "Failed to import Terminal profile for ${username} - window management issue"
-      return 1
+    local new_default
+    new_default=$(defaults read com.apple.Terminal "Default Window Settings")
+    if [[ ${new_default} != "${profile_name}" ]]; then
+      collect_error "Failed to set ${profile_name} as Default profile for ${username}"
     fi
+
+    local new_startup
+    new_startup=$(defaults read com.apple.Terminal "Startup Window Settings")
+    if [[ ${new_startup} != "${profile_name}" ]]; then
+      collect_error "Failed to set ${profile_name} as Startup profile for ${username}"
+    fi
+
+    log "Successfully imported Terminal profile for ${username}"
+    log "New profile will be active in next Terminal session"
+    return 0
   else
-    # For operator user - copy profile file to their config directory
-    # Registration will happen during operator-first-login.sh
-    local operator_home="/Users/${username}"
-    local operator_config_dir="${operator_home}/.config/terminal"
-    local operator_profile_file
-    operator_profile_file="${operator_config_dir}/$(basename "${profile_file}")"
-
-    # Create config directory with proper ownership
-    if ! sudo -iu "${username}" mkdir -p "${operator_config_dir}"; then
-      collect_error "Failed to create Terminal config directory for ${username}"
-      return 1
-    fi
-
-    # Copy profile file to operator's config directory
-    if sudo cp "${profile_file}" "${operator_profile_file}" \
-      && sudo chown "${username}:staff" "${operator_profile_file}"; then
-      log "Successfully copied Terminal profile to ${operator_profile_file}"
-      log "Profile will be registered during operator first login"
-      return 0
-    else
-      collect_error "Failed to copy Terminal profile file for ${username}"
-      return 1
-    fi
+    log "AppleScript window management failed: ${applescript_result}"
+    collect_error "Failed to import Terminal profile for ${username} - window management issue"
+    return 1
   fi
 }
 
@@ -306,48 +277,19 @@ import_iterm2_preferences_for_user() {
     return 0
   fi
 
-  if [[ "${username}" == "${ADMIN_USERNAME}" ]]; then
-    # Import for current admin user - file copy
-    if cp -f "${preferences_file}" "${HOME}/Library/Preferences"; then
-      killall iTerm2 &>/dev/null || true
-      sleep 1
-      open -a iTerm2 &>/dev/null || true
-      sleep 1
-      killall iTerm2 &>/dev/null || true
-      log "Successfully imported iTerm2 preferences for ${username}"
-      log "Restart iTerm2 to see changes"
-      return 0
-    else
-      collect_error "Failed to import iTerm2 preferences for ${username}"
-      return 1
-    fi
+  # Import for current admin user - file copy
+  if cp -f "${preferences_file}" "${HOME}/Library/Preferences"; then
+    killall iTerm2 &>/dev/null || true
+    sleep 1
+    open -a iTerm2 &>/dev/null || true
+    sleep 1
+    killall iTerm2 &>/dev/null || true
+    log "Successfully imported iTerm2 preferences for ${username}"
+    log "Restart iTerm2 to see changes"
+    return 0
   else
-    # For operator user - copy preferences file to their config directory
-    # Import will happen during operator-first-login.sh
-    local operator_home="/Users/${username}"
-    local operator_library_prefs_dir="${operator_home}/Library/Preferences"
-
-    # Create config directory with proper ownership
-    if ! sudo -iu "${username}" mkdir -p "${operator_library_prefs_dir}"; then
-      collect_error "Failed to create iTerm2 config directory for ${username}"
-      return 1
-    fi
-
-    # Copy preferences file to operator's config directory
-    if sudo cp "${preferences_file}" "${operator_library_prefs_dir}" \
-      && sudo chown "${username}:staff" "${operator_library_prefs_dir}/${preferences_file}"; then
-      sudo -iu "{username}" killall iTerm2 &>/dev/null || true
-      sleep 1
-      sudo -iu "{username}" open -a iTerm2 &>/dev/null || true
-      sleep 1
-      sudo -iu "{username}" killall iTerm2 &>/dev/null || true
-      log "Successfully copied iTerm2 preferences to ${operator_library_prefs_dir}"
-      log "Preferences will be imported during operator first login"
-      return 0
-    else
-      collect_error "Failed to copy iTerm2 preferences file for ${username}"
-      return 1
-    fi
+    collect_error "Failed to import iTerm2 preferences for ${username}"
+    return 1
   fi
 }
 
@@ -391,26 +333,15 @@ configure_terminal_profiles() {
   # Check if terminal apps are running
   check_running_terminal_apps
 
-  # Create backups for both users
+  # Create backups
   log "Creating preference backups..."
   backup_user_preferences "${ADMIN_USERNAME}"
-
-  if dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-    backup_user_preferences "${OPERATOR_USERNAME}"
-  else
-    log "Operator user not found - will configure when account is created"
-  fi
 
   # Import Terminal profiles
   if [[ -n "${TERMINAL_PROFILE_PATH}" ]] && [[ -f "${TERMINAL_PROFILE_PATH}" ]]; then
     log "Importing Terminal profiles..."
     import_terminal_profile_for_user "${ADMIN_USERNAME}" "${TERMINAL_PROFILE_PATH}"
     check_optional_success $? "Terminal profile import for admin user"
-
-    if dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-      import_terminal_profile_for_user "${OPERATOR_USERNAME}" "${TERMINAL_PROFILE_PATH}"
-      check_optional_success $? "Terminal profile import for operator user"
-    fi
   elif [[ -n "${TERMINAL_PROFILE_PATH}" ]]; then
     log "⚠️  Terminal profile file not found: ${TERMINAL_PROFILE_PATH} (optional feature - continuing)"
   else
@@ -422,11 +353,6 @@ configure_terminal_profiles() {
     log "Importing iTerm2 preferences..."
     import_iterm2_preferences_for_user "${ADMIN_USERNAME}" "${ITERM2_PREFERENCES_PATH}"
     check_optional_success $? "iTerm2 preferences import for admin user"
-
-    if dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-      import_iterm2_preferences_for_user "${OPERATOR_USERNAME}" "${ITERM2_PREFERENCES_PATH}"
-      check_optional_success $? "iTerm2 preferences import for operator user"
-    fi
   elif [[ "${USE_ITERM2:-false}" == "true" ]] && [[ ! -f "${ITERM2_PREFERENCES_PATH}" ]]; then
     log "⚠️  iTerm2 preferences file not found: ${ITERM2_PREFERENCES_PATH} (optional feature - continuing)"
   else
