@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 
 #
-# prep-airdrop.sh - Mac Mini Server Deployment Package Preparation
+# prep-airdrop.sh - Mac Mini Dev Server Deployment Package Preparation
 #
-# This script creates a comprehensive deployment package for Mac Mini server setup by:
+# This script creates a comprehensive deployment package for Mac Mini dev server setup by:
 # - Managing 1Password credential retrieval and secure transfer via external keychain
 # - Creating hardware fingerprint validation to prevent accidental execution
 # - Configuring WiFi credentials (manual or Migration Assistant strategies)
 # - Generating deployment manifest for package validation
-# - Copying all setup scripts, configurations, and templates
-# - Processing environment-specific configurations and templates
+# - Copying all setup scripts and configurations
+# - Processing environment-specific configurations
 #
 # REQUIREMENTS:
 # - 1Password CLI (op) installed and authenticated: `op signin`
-# - Required 1Password vault items: operator, TimeMachine, Plex NAS, Apple ID, OpenSubtitles
+# - Required 1Password vault items: TimeMachine, Apple ID
 # - SSH keys present at ~/.ssh/id_ed25519 and ~/.ssh/id_ed25519.pub
 # - jq, openssl, system_profiler, security commands available
 # - Administrator privileges for WiFi keychain access
@@ -31,11 +31,8 @@
 # - 1Password credential retrieval (if missing)
 #
 # ENVIRONMENT VARIABLES (Optional):
-# - FILEBOT_LICENSE_FILE: Path to FileBot license file for inclusion
 # - USE_ITERM2: Set to "true" to export iTerm2 preferences
 # - TERMINAL_PROFILE_FILE: Terminal profile filename to include
-# - DROPBOX_SYNC_FOLDER: Dropbox folder for rclone configuration
-# - DROPBOX_LOCAL_PATH: Local sync path for Dropbox
 #
 # SECURITY FEATURES:
 # - Hardware UUID fingerprint prevents wrong-machine execution
@@ -75,13 +72,8 @@ else
   # Set fallback defaults
   SERVER_NAME="MACMINI"
   ONEPASSWORD_VAULT="personal"
-  ONEPASSWORD_OPERATOR_ITEM="operator"
   ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine"
-  ONEPASSWORD_PLEX_NAS_ITEM="Plex NAS"
   ONEPASSWORD_APPLEID_ITEM="Apple"
-  ONEPASSWORD_OPENSUBTITLES_ITEM="Opensubtitles"
-  DROPBOX_SYNC_FOLDER=""
-  DROPBOX_LOCAL_PATH=""
 fi
 
 # Handle command line arguments
@@ -313,8 +305,6 @@ copy_dir_with_manifest() {
 SERVER_NAME_LOWER="$(tr '[:upper:]' '[:lower:]' <<<"${SERVER_NAME}")"
 OUTPUT_PATH="${1:-${HOME}/${SERVER_NAME_LOWER}-setup}"
 OP_TIMEMACHINE_ENTRY="${ONEPASSWORD_TIMEMACHINE_ITEM}"
-OP_PLEX_NAS_ENTRY="${ONEPASSWORD_PLEX_NAS_ITEM}"
-OP_OPENSUBTITLES_ENTRY="${ONEPASSWORD_OPENSUBTITLES_ITEM}"
 
 # Check if output directory exists
 if [[ -d "${OUTPUT_PATH}" ]]; then
@@ -345,7 +335,6 @@ set_section "Creating Directory Structure"
 mkdir -p "${OUTPUT_PATH}/ssh_keys"
 mkdir -p "${OUTPUT_PATH}/scripts"
 mkdir -p "${OUTPUT_PATH}/app-setup/config"
-mkdir -p "${OUTPUT_PATH}/app-setup/templates"
 mkdir -p "${OUTPUT_PATH}/config"
 mkdir -p "${OUTPUT_PATH}/bash"
 
@@ -376,7 +365,6 @@ SSH_PRIVATE_KEY_PATH="${HOME}/.ssh/id_ed25519"
 echo "Copying SSH keys..."
 copy_with_manifest "${SSH_PUBLIC_KEY_PATH}" "ssh_keys/authorized_keys" "REQUIRED"
 copy_with_manifest "${SSH_PUBLIC_KEY_PATH}" "ssh_keys/id_ed25519.pub" "REQUIRED"
-copy_with_manifest "${SSH_PUBLIC_KEY_PATH}" "ssh_keys/operator_authorized_keys" "REQUIRED"
 copy_with_manifest "${SSH_PRIVATE_KEY_PATH}" "ssh_keys/id_ed25519" "REQUIRED"
 
 # Set correct permissions on private key if it was copied
@@ -551,11 +539,8 @@ finalize_external_keychain() {
 create_keychain_manifest() {
   cat >"${OUTPUT_PATH}/config/keychain_manifest.conf" <<EOF
 # External keychain service identifiers for credential retrieval
-KEYCHAIN_OPERATOR_SERVICE="operator-${SERVER_NAME_LOWER}"
-KEYCHAIN_PLEX_NAS_SERVICE="plex-nas-${SERVER_NAME_LOWER}"
 KEYCHAIN_TIMEMACHINE_SERVICE="timemachine-${SERVER_NAME_LOWER}"
 KEYCHAIN_WIFI_SERVICE="wifi-${SERVER_NAME_LOWER}"
-KEYCHAIN_OPENSUBTITLES_SERVICE="opensubtitles-${SERVER_NAME_LOWER}"
 KEYCHAIN_ACCOUNT="${SERVER_NAME_LOWER}"
 EOF
   chmod 600 "${OUTPUT_PATH}/config/keychain_manifest.conf"
@@ -563,44 +548,9 @@ EOF
   echo "✅ Keychain manifest created"
 }
 
-# Set up operator account credentials using 1Password
-set_section "Setting up operator account credentials"
-
 # Initialize external keychain for credential storage
+set_section "Setting up credentials"
 init_external_keychain
-
-# Check if operator credentials exist in 1Password
-if ! op item get "${ONEPASSWORD_OPERATOR_ITEM}" --vault "${ONEPASSWORD_VAULT}" >/dev/null 2>&1; then
-  echo "Creating ${ONEPASSWORD_OPERATOR_ITEM} credentials in 1Password..."
-
-  # Generate a secure password and create the item
-  RANDOM_BYTES=$(openssl rand -base64 16)
-  CLEANED_BYTES=$(echo "${RANDOM_BYTES}" | tr -d "=+/")
-  GENERATED_PASSWORD=$(echo "${CLEANED_BYTES}" | cut -c1-20)
-
-  op item create --category login \
-    --title "${ONEPASSWORD_OPERATOR_ITEM}" \
-    --vault "${ONEPASSWORD_VAULT}" \
-    username="operator" \
-    password="${GENERATED_PASSWORD}"
-
-  echo "✅ Created ${ONEPASSWORD_OPERATOR_ITEM} credentials in 1Password"
-else
-  echo "✅ Found existing ${ONEPASSWORD_OPERATOR_ITEM} credentials in 1Password"
-fi
-
-# Retrieve the operator password and store in external keychain
-echo "Retrieving operator password from 1Password..."
-OPERATOR_PASSWORD=$(op read "op://${ONEPASSWORD_VAULT}/${ONEPASSWORD_OPERATOR_ITEM}/password")
-store_external_keychain_credential \
-  "operator-${SERVER_NAME_LOWER}" \
-  "${SERVER_NAME_LOWER}" \
-  "${OPERATOR_PASSWORD}" \
-  "Mac Server Setup - Operator Account Password"
-
-# Clear password from memory
-unset OPERATOR_PASSWORD
-echo "✅ Operator password stored in Keychain"
 
 # Set up Time Machine credentials using 1Password
 echo "Setting up Time Machine credentials..."
@@ -639,110 +589,6 @@ EOF
   echo "✅ Time Machine credentials stored in Keychain"
 fi
 
-# Set up Plex NAS credentials using 1Password
-echo "Setting up Plex NAS credentials..."
-
-# Check if Plex NAS credentials exist in 1Password
-if ! op item get "${OP_PLEX_NAS_ENTRY}" --vault "${ONEPASSWORD_VAULT}" >/dev/null 2>&1; then
-  echo "⚠️ Plex NAS credentials not found in 1Password"
-  echo "Please create '${OP_PLEX_NAS_ENTRY}' entry manually"
-  echo "Skipping Plex NAS credential setup"
-else
-  echo "✅ Found Plex NAS credentials in 1Password"
-
-  # Retrieve Plex NAS details from 1Password
-  echo "Retrieving Plex NAS details from 1Password..."
-  PLEX_NAS_USERNAME=$(op item get "${OP_PLEX_NAS_ENTRY}" --vault "${ONEPASSWORD_VAULT}" --fields username)
-  PLEX_NAS_PASSWORD=$(op read "op://${ONEPASSWORD_VAULT}/${OP_PLEX_NAS_ENTRY}/password")
-  PLEX_NAS_JSON=$(op item get "${OP_PLEX_NAS_ENTRY}" --vault "${ONEPASSWORD_VAULT}" --format json)
-  PLEX_NAS_URL=$(echo "${PLEX_NAS_JSON}" | jq -r '.urls[0].href // "nas.local"')
-
-  # Extract hostname from URL if it's a full URL, otherwise use as-is
-  if [[ "${PLEX_NAS_URL}" =~ ^[a-zA-Z]+:// ]]; then
-    # Extract hostname from URL (e.g., "smb://nas.local/share" -> "nas.local")
-    PLEX_NAS_HOSTNAME=$(echo "${PLEX_NAS_URL}" | sed -E 's|^[^/]+//([^/]+).*|\1|')
-  else
-    # Use URL field directly as hostname (e.g., "nas.local")
-    PLEX_NAS_HOSTNAME="${PLEX_NAS_URL}"
-  fi
-
-  # Store Plex NAS credentials in external keychain (username:password format)
-  store_external_keychain_credential \
-    "plex-nas-${SERVER_NAME_LOWER}" \
-    "${SERVER_NAME_LOWER}" \
-    "${PLEX_NAS_USERNAME}:${PLEX_NAS_PASSWORD}" \
-    "Mac Server Setup - Plex NAS Credentials"
-
-  # Create basic hostname config file (non-sensitive)
-  cat >"${OUTPUT_PATH}/app-setup/config/plex_nas.conf" <<EOF
-PLEX_NAS_HOSTNAME="${PLEX_NAS_HOSTNAME}"
-EOF
-  chmod 644 "${OUTPUT_PATH}/app-setup/config/plex_nas.conf"
-  add_to_manifest "app-setup/config/plex_nas.conf" "REQUIRED"
-
-  # Clear credentials from memory
-  unset PLEX_NAS_USERNAME PLEX_NAS_PASSWORD
-  echo "✅ Plex NAS credentials stored in Keychain"
-fi
-
-# Set up OpenSubtitles credentials using 1Password
-echo "Setting up OpenSubtitles credentials..."
-
-# Check if OpenSubtitles credentials exist in 1Password
-if ! op item get "${OP_OPENSUBTITLES_ENTRY}" --vault "${ONEPASSWORD_VAULT}" >/dev/null 2>&1; then
-  echo "⚠️ OpenSubtitles credentials not found in 1Password"
-  echo "Please create '${OP_OPENSUBTITLES_ENTRY}' entry manually"
-  echo "Skipping OpenSubtitles credential setup"
-else
-  echo "✅ Found OpenSubtitles credentials in 1Password"
-
-  # Retrieve OpenSubtitles details from 1Password
-  echo "Retrieving OpenSubtitles details from 1Password..."
-  OPENSUBTITLES_USERNAME=$(op item get "${OP_OPENSUBTITLES_ENTRY}" --vault "${ONEPASSWORD_VAULT}" --fields username)
-  OPENSUBTITLES_PASSWORD=$(op read "op://${ONEPASSWORD_VAULT}/${OP_OPENSUBTITLES_ENTRY}/password")
-
-  # Store OpenSubtitles credentials in external keychain (username:password format)
-  store_external_keychain_credential \
-    "opensubtitles-${SERVER_NAME_LOWER}" \
-    "${SERVER_NAME_LOWER}" \
-    "${OPENSUBTITLES_USERNAME}:${OPENSUBTITLES_PASSWORD}" \
-    "Mac Server Setup - OpenSubtitles Credentials"
-
-  # Clear credentials from memory
-  unset OPENSUBTITLES_USERNAME OPENSUBTITLES_PASSWORD
-  echo "✅ OpenSubtitles credentials stored in Keychain"
-fi
-
-# Set up Dropbox synchronization if configured
-if [[ -n "${DROPBOX_SYNC_FOLDER:-}" ]]; then
-  if [[ -f "${SCRIPT_SOURCE_DIR}/scripts/airdrop/rclone-airdrop-prep.sh" ]]; then
-    echo "Running Dropbox setup..."
-    # Export required variables for the rclone script
-    export OUTPUT_PATH SERVER_NAME_LOWER DROPBOX_SYNC_FOLDER DROPBOX_LOCAL_PATH
-    "${SCRIPT_SOURCE_DIR}/scripts/airdrop/rclone-airdrop-prep.sh"
-  else
-    collect_warning "rclone-airdrop-prep.sh not found - skipping Dropbox setup"
-  fi
-else
-  echo "No Dropbox sync folder configured - skipping Dropbox setup"
-fi
-
-# Copy FileBot license file if configured
-if [[ -n "${FILEBOT_LICENSE_FILE:-}" ]]; then
-  if [[ -f "${FILEBOT_LICENSE_FILE}" ]]; then
-    echo "Copying FileBot license file..."
-    license_filename="$(basename "${FILEBOT_LICENSE_FILE}")"
-    copy_with_manifest "${FILEBOT_LICENSE_FILE}" "app-setup/config/${license_filename}" "OPTIONAL"
-    chmod 600 "${OUTPUT_PATH}/app-setup/config/${license_filename}"
-    add_to_manifest "app-setup/config/${license_filename}" "OPTIONAL"
-    echo "✅ FileBot license file copied to app-setup/config/${license_filename}"
-  else
-    collect_warning "FileBot license file not found at: ${FILEBOT_LICENSE_FILE}"
-  fi
-else
-  echo "No FileBot license file configured - skipping FileBot license copy"
-fi
-
 # Create and save one-time link for Apple ID password
 APPLE_ID_ITEM="$(op item list --categories Login --vault "${ONEPASSWORD_VAULT}" --favorite --format=json 2>/dev/null | jq -r '.[] | select(.title == "'"${ONEPASSWORD_APPLEID_ITEM}"'") | .id' 2>/dev/null || echo "")"
 ONE_TIME_URL="$(op item share "${APPLE_ID_ITEM}" --view-once)"
@@ -758,8 +604,6 @@ EOF
 else
   echo "⚠️ No URL provided, skipping Apple ID password link creation"
 fi
-
-# Operator first-login script will be copied with all other server scripts below
 
 # Copy from local script source directory
 if [[ -d "${SCRIPT_SOURCE_DIR}" ]]; then
@@ -780,41 +624,6 @@ if [[ -d "${SCRIPT_SOURCE_DIR}" ]]; then
         echo "  ✅ ${script_name}"
       else
         echo "  ❌ Failed to copy ${script_name}"
-      fi
-    fi
-  done
-
-  # Generate transmission-done.sh from template if it doesn't exist
-  if [[ ! -f "${SCRIPT_SOURCE_DIR}/app-setup/templates/transmission-done.sh" ]]; then
-    if [[ -f "${SCRIPT_SOURCE_DIR}/app-setup/templates/transmission-done-template.sh" ]]; then
-      cp "${SCRIPT_SOURCE_DIR}/app-setup/templates/transmission-done-template.sh" \
-        "${SCRIPT_SOURCE_DIR}/app-setup/templates/transmission-done.sh"
-    else
-      echo "Warning: transmission-done-template.sh not found, skipping generation"
-    fi
-  fi
-
-  # Copy all template scripts to app-setup/templates
-  # Templates required for core functionality are marked REQUIRED; others are OPTIONAL
-  echo "Copying template scripts..."
-  for template in "${SCRIPT_SOURCE_DIR}/app-setup/templates/"*.sh; do
-    if [[ -f "${template}" ]]; then
-      template_name="$(basename "${template}")"
-      # Skip the source template (not a deployable script)
-      if [[ "${template_name}" == "transmission-done-template.sh" ]]; then
-        continue
-      fi
-      # Core infrastructure templates are REQUIRED; app-specific monitors are OPTIONAL
-      severity="OPTIONAL"
-      case "${template_name}" in
-        mount-nas-media.sh | start-rclone.sh) severity="REQUIRED" ;;
-        *) ;;
-      esac
-      if copy_with_manifest "${template}" "app-setup/templates/${template_name}" "${severity}"; then
-        chmod +x "${OUTPUT_PATH}/app-setup/templates/${template_name}"
-        echo "  ✅ ${template_name}"
-      else
-        echo "  ❌ Failed to copy ${template_name}"
       fi
     fi
   done
