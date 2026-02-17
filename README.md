@@ -186,11 +186,11 @@ Errors block setup. Warnings are optional stuff that wasn't available. Each mess
 
 ## Logs
 
-| Script | Log location |
-|--------|-------------|
-| `prep-airdrop.sh` | Console output only |
-| `first-boot.sh` | `~/.local/state/<hostname>-setup.log` |
-| App setup scripts | `~/.local/state/<hostname>-app-setup.log` |
+| Script             | Log location                              |
+| ------------------ | ----------------------------------------- |
+| `prep-airdrop.sh`  | Console output only                       |
+| `first-boot.sh`    | `~/.local/state/<hostname>-setup.log`     |
+| App setup scripts  | `~/.local/state/<hostname>-app-setup.log` |
 
 ## Troubleshooting
 
@@ -205,7 +205,7 @@ Errors block setup. Warnings are optional stuff that wasn't available. Each mess
 ## Docs
 
 | Topic | Link |
-|-------|------|
+| --- | --- |
 | What you need before starting | [Prerequisites](docs/prerequisites.md) |
 | Configuration options | [Environment Variables](docs/environment-variables.md) |
 | Customizing parameters | [Configuration Reference](docs/configuration.md) |
