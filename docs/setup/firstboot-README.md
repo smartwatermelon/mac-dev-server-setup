@@ -1,6 +1,6 @@
-# Server Setup Files
+# Dev Server Setup Files
 
-This directory contains all the necessary files for setting up the Mac Mini server.
+This directory contains all the necessary files for setting up the Mac Mini dev server.
 
 ## Contents
 
@@ -31,7 +31,6 @@ For detailed instructions, refer to the complete runbook.
 
 ## Notes
 
-- The operator account password was retrieved from 1Password in `prep-airdrop` using configured credentials
-- After setup, you can access the server via SSH using the admin or operator account
+- After setup, you can access the server via SSH using the admin account
 - TouchID sudo will be configured during first-boot setup (you'll be prompted to enable it)
 - WiFi will be configured automatically using the saved network information

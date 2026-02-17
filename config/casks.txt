@@ -1,23 +1,14 @@
-1password
-1password-cli
-appcleaner
-backblaze
-bbedit
-blockblock
-catch
-coconutid
-filebot
-font-inconsolata
-hiddenbar
-hot
+# Development
+android-studio
+android-commandlinetools
+
+# Terminal
 iterm2
-knockknock
-lulu
-no-ip-duc
-notunes
-plex-media-server
-smartwatermelon/tap/progress-indicator
+
+# Security
+1password-cli
+
+# System utilities (retained from original)
+appcleaner
+hiddenbar
 stats
-taskexplorer
-transmission
-vlc

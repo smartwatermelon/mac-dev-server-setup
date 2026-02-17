@@ -1,10 +1,10 @@
 # Environment Variables Reference
 
-Complete guide to customizing Mac Mini server setup via environment variables
+Complete guide to customizing Mac Mini dev server setup via environment variables
 
 ## Overview
 
-The Mac Mini server setup system supports extensive customization through environment variables. These can be set in your shell environment, added to `config/config.conf`, or passed directly to scripts.
+The Mac Mini dev server setup system supports extensive customization through environment variables. These can be set in your shell environment, added to `config/config.conf`, or passed directly to scripts.
 
 ## Primary Configuration Variables
 
@@ -14,16 +14,10 @@ The Mac Mini server setup system supports extensive customization through enviro
 
 ```bash
 # Primary server identifier (affects hostname, volume names, etc.)
-SERVER_NAME="MACMINI"
-
-# Day-to-day user account name
-OPERATOR_USERNAME="operator"
+SERVER_NAME="macmini"
 
 # Custom hostname override (optional)
 HOSTNAME_OVERRIDE=""
-
-# Operator account full name (auto-generated if not set)
-OPERATOR_FULLNAME="${SERVER_NAME} Operator"
 ```
 
 ### 1Password Integration
@@ -35,48 +29,30 @@ OPERATOR_FULLNAME="${SERVER_NAME} Operator"
 ONEPASSWORD_VAULT="personal"
 
 # 1Password item names (customizable)
-ONEPASSWORD_OPERATOR_ITEM="operator"
-ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine"
-ONEPASSWORD_PLEX_NAS_ITEM="Plex NAS"
+ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine NAS"
 ONEPASSWORD_APPLEID_ITEM="Apple"
-ONEPASSWORD_OPENSUBTITLES_ITEM="Opensubtitles"
+SSH_KEY_ITEM="SSH Keys"
 ```
 
-### NAS Configuration
+### Development Configuration
 
-**Location**: `config/config.conf` or app-setup scripts
+**Location**: `config/config.conf`
 
 ```bash
-# NAS connection details
-NAS_HOSTNAME="nas.local"
-NAS_SHARE_NAME="Media"
-NAS_USERNAME="plex"
+# Dotfiles repository for shell/editor configuration
+DOTFILES_REPO="git@github.com:smartwatermelon/dotfiles.git"
+
+# Android SDK platform version to install
+ANDROID_SDK_VERSION="34"
+
+# Node.js version to install via nvm
+NODE_VERSION="lts"
+
+# Xcode version (empty = latest from App Store)
+XCODE_VERSION=""
 ```
 
 ## Advanced Configuration Variables
-
-### Dropbox Synchronization
-
-**Location**: Shell environment or `config/config.conf`
-
-```bash
-# Dropbox sync configuration (for rclone setup)
-DROPBOX_SYNC_FOLDER="path/to/sync/folder"
-DROPBOX_LOCAL_PATH="/Users/operator/Dropbox"
-```
-
-**Usage**: When set, prep-airdrop.sh automatically configures Dropbox sync during package preparation.
-
-### FileBot Licensing
-
-**Location**: Shell environment
-
-```bash
-# Path to FileBot license file for inclusion in deployment package
-FILEBOT_LICENSE_FILE="/path/to/FileBot_License_XXXXXXXXX.psm"
-```
-
-**Usage**: If set, prep-airdrop.sh copies the license file to the deployment package for automatic installation.
 
 ### Terminal Configuration
 
@@ -84,10 +60,10 @@ FILEBOT_LICENSE_FILE="/path/to/FileBot_License_XXXXXXXXX.psm"
 
 ```bash
 # Enable iTerm2 preference export
-USE_ITERM2="true"
+USE_ITERM2="false"
 
 # Terminal profile file to include (from config/ directory)
-TERMINAL_PROFILE_FILE="Orangebrew.terminal"
+TERMINAL_PROFILE_FILE=""
 ```
 
 **Usage**: Controls terminal application setup during deployment.
@@ -139,9 +115,6 @@ HOSTNAME="${HOSTNAME_OVERRIDE:-${SERVER_NAME}}"
 # Lowercase version for file paths
 HOSTNAME_LOWER="$(tr '[:upper:]' '[:lower:]' <<<"${HOSTNAME}")"
 
-# Operator account display name
-OPERATOR_FULLNAME="${SERVER_NAME} Operator"
-
 # Server name in lowercase
 SERVER_NAME_LOWER="$(tr '[:upper:]' '[:lower:]' <<<"${SERVER_NAME}")"
 ```
@@ -154,17 +127,13 @@ Auto-generated directory and file locations
 # Deployment package output
 OUTPUT_PATH="${HOME}/${SERVER_NAME_LOWER}-setup"
 
-# Operator home directory
-OPERATOR_HOME="/Users/${OPERATOR_USERNAME}"
-
 # Setup and configuration directories
 SETUP_DIR="$(pwd)"  # Deployment package root
 CONFIG_DIR="${SETUP_DIR}/config"
 LOG_DIR="${HOME}/.local/state"
 
 # Application-specific paths
-PLEX_MEDIA_MOUNT="${OPERATOR_HOME}/.local/mnt/${NAS_SHARE_NAME}"
-LAUNCH_AGENTS_DIR="${OPERATOR_HOME}/Library/LaunchAgents"
+LAUNCH_AGENTS_DIR="${HOME}/Library/LaunchAgents"
 ```
 
 ## Security Variables
@@ -188,37 +157,8 @@ EXTERNAL_KEYCHAIN="mac-server-setup"
 
 ```bash
 # Service identifiers for credential retrieval
-KEYCHAIN_OPERATOR_SERVICE="operator-${SERVER_NAME_LOWER}"
-KEYCHAIN_PLEX_NAS_SERVICE="plex-nas-${SERVER_NAME_LOWER}"
 KEYCHAIN_TIMEMACHINE_SERVICE="timemachine-${SERVER_NAME_LOWER}"
 KEYCHAIN_WIFI_SERVICE="wifi-${SERVER_NAME_LOWER}"
-KEYCHAIN_OPENSUBTITLES_SERVICE="opensubtitles-${SERVER_NAME_LOWER}"
-```
-
-## Application-Specific Variables
-
-### Plex Configuration
-
-**Location**: plex-setup.sh runtime
-
-```bash
-# Plex server configuration
-PLEX_SERVER_NAME="${PLEX_SERVER_NAME_OVERRIDE:-${HOSTNAME}}"
-PLEX_PREFS="com.plexapp.plexmediaserver"
-LAUNCH_AGENT="com.${HOSTNAME_LOWER}.plexmediaserver"
-
-# Plex directory locations
-PLEX_OLD_CONFIG="${HOME}/plex-migration/Plex Media Server"
-PLEX_NEW_CONFIG="/Users/Shared/PlexMediaServer"
-```
-
-### Transmission Configuration
-
-**Location**: transmission-setup.sh
-
-```bash
-# RPC web interface password (optional override)
-RPC_PASSWORD="${RPC_PASSWORD:-auto-generated}"
 ```
 
 ## Error Collection Variables
@@ -243,16 +183,15 @@ CURRENT_SCRIPT_SECTION=""
 ```bash
 # Edit config/config.conf
 SERVER_NAME="MYSERVER"
-OPERATOR_USERNAME="admin"
-USE_ITERM2="true"
+DOTFILES_REPO="git@github.com:user/dotfiles.git"
+NODE_VERSION="20"
 ```
 
 ### In Shell Environment
 
 ```bash
 # Set before running scripts
-export FILEBOT_LICENSE_FILE="/path/to/license.psm"
-export DROPBOX_SYNC_FOLDER="Documents/MyProject"
+export ANDROID_SDK_VERSION="35"
 ./prep-airdrop.sh
 ```
 
@@ -260,7 +199,6 @@ export DROPBOX_SYNC_FOLDER="Documents/MyProject"
 
 ```bash
 # Some variables can be overridden via flags
-./plex-setup.sh --server-name "CustomName"
 ./first-boot.sh --force  # Sets FORCE=true
 ```
 
@@ -271,17 +209,21 @@ export DROPBOX_SYNC_FOLDER="Documents/MyProject"
 These must be set in `config/config.conf`:
 
 - `SERVER_NAME`
-- `OPERATOR_USERNAME`
 - `ONEPASSWORD_VAULT`
-- All `ONEPASSWORD_*_ITEM` variables
+- `ONEPASSWORD_APPLEID_ITEM`
+- `ONEPASSWORD_TIMEMACHINE_ITEM`
 
 ### Optional Variables
 
 These have sensible defaults if not set:
 
 - `HOSTNAME_OVERRIDE` (defaults to `SERVER_NAME`)
-- Terminal and application-specific variables
-- Dropbox and FileBot configuration
+- `DOTFILES_REPO` (dotfiles clone skipped if empty)
+- `ANDROID_SDK_VERSION` (defaults to "34")
+- `NODE_VERSION` (defaults to "lts")
+- `XCODE_VERSION` (empty = latest from App Store)
+- `SSH_KEY_ITEM` (defaults to "SSH Keys")
+- Terminal configuration variables
 
 ### Auto-Generated Variables
 
