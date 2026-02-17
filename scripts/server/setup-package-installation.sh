@@ -269,8 +269,6 @@ if [[ "${SKIP_PACKAGES}" = false ]]; then
     # Get estimated size for large packages
     local size_hint=""
     case "${cask}" in
-      plex-media-server) size_hint=" (~250 MB)" ;;
-      filebot) size_hint=" (~50 MB)" ;;
       vlc) size_hint=" (~75 MB)" ;;
       bbedit) size_hint=" (~25 MB)" ;;
       *) size_hint="" ;;

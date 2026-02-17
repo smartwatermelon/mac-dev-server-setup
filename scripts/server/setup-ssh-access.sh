@@ -4,7 +4,7 @@
 #
 # This script configures SSH access including service enablement and key setup.
 # It handles Full Disk Access requirements for SSH enablement and copies
-# SSH keys for both admin and operator accounts.
+# SSH keys for the admin account.
 #
 # Usage: ./setup-ssh-access.sh [--force]
 #   --force: Skip all confirmation prompts
@@ -222,28 +222,6 @@ if [[ -d "${SSH_KEY_SOURCE}" ]]; then
     check_success "Admin SSH private key setup"
   fi
 
-  # Set up operator SSH keys if available and operator account exists
-  if [[ -f "${SSH_KEY_SOURCE}/operator_authorized_keys" ]] && [[ -n "${OPERATOR_USERNAME:-}" ]]; then
-    if dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-      OPERATOR_SSH_DIR="/Users/${OPERATOR_USERNAME}/.ssh"
-      log "Setting up SSH keys for operator account"
-
-      sudo -p "[SSH setup] Enter password to configure operator SSH keys: " mkdir -p "${OPERATOR_SSH_DIR}"
-      sudo cp "${SSH_KEY_SOURCE}/operator_authorized_keys" "${OPERATOR_SSH_DIR}/authorized_keys"
-      sudo chmod 700 "${OPERATOR_SSH_DIR}"
-      sudo chmod 600 "${OPERATOR_SSH_DIR}/authorized_keys"
-      sudo chown -R "${OPERATOR_USERNAME}" "${OPERATOR_SSH_DIR}"
-
-      check_success "Operator SSH key setup"
-
-      # Add operator to SSH access group
-      log "Adding operator to SSH access group"
-      sudo -p "[SSH setup] Enter password to add operator to SSH access group: " dseditgroup -o edit -a "${OPERATOR_USERNAME}" -t user com.apple.access_ssh
-      check_success "Operator SSH group membership"
-    else
-      log "Operator account not found - skipping operator SSH key setup"
-    fi
-  fi
 else
   log "No SSH keys found at ${SSH_KEY_SOURCE} - manual key setup will be required"
 fi

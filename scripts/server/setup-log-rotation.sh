@@ -162,7 +162,7 @@ configure_log_rotation() {
     # Copy our logrotate configuration
     sudo -p "[Logrotate setup] Enter password to install logrotate config: " cp "${CONFIG_FILE%/*}/logrotate.conf" "${LOGROTATE_CONFIG_DIR}/"
 
-    # Make config user-writable so both admin and operator can modify it (664)
+    # Make config user-writable so admin user can modify it (664)
     sudo -p "[Logrotate setup] Enter password to set config permissions: " chmod 664 "${LOGROTATE_CONFIG_DIR}/logrotate.conf"
     sudo -p "[Logrotate setup] Enter password to set config ownership: " chown "${ADMIN_USERNAME}:admin" "${LOGROTATE_CONFIG_DIR}/logrotate.conf"
     check_success "Logrotate configuration install"

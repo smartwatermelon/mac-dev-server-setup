@@ -150,9 +150,6 @@ check_success() {
   fi
 }
 
-# Set up required variables with fallbacks
-OPERATOR_USERNAME="${OPERATOR_USERNAME:-operator}"
-
 # Fast User Switching
 section "Enabling Fast User Switching"
 log "Configuring Fast User Switching for multi-user access"
@@ -160,24 +157,19 @@ sudo -p "[System setup] Enter password to enable multiple user sessions: " defau
 check_success "Fast User Switching configuration"
 
 # Fast User Switching menu bar style and visibility
-defaults write .GlobalPreferences userMenuExtraStyle -int 1                                                                                                     # username
-sudo -p "[User setup] Enter password to configure operator menu style: " -iu "${OPERATOR_USERNAME}" defaults write .GlobalPreferences userMenuExtraStyle -int 1 # username
-defaults -currentHost write com.apple.controlcenter UserSwitcher -int 2                                                                                         # menubar
-sudo -iu "${OPERATOR_USERNAME}" defaults -currentHost write com.apple.controlcenter UserSwitcher -int 2                                                         # menubar
+defaults write .GlobalPreferences userMenuExtraStyle -int 1             # username
+defaults -currentHost write com.apple.controlcenter UserSwitcher -int 2 # menubar
 
 # Fix scroll setting
 section "Fix scroll setting"
 log "Fixing Apple's default scroll setting"
 defaults write -g com.apple.swipescrolldirection -bool false
-sudo -p "[User setup] Enter password to configure operator scroll direction: " -iu "${OPERATOR_USERNAME}" defaults write -g com.apple.swipescrolldirection -bool false
 check_success "Fix scroll setting"
 
 # Configure screen saver password requirement
 section "Configuring screen saver password requirement"
 defaults -currentHost write com.apple.screensaver askForPassword -int 1
 defaults -currentHost write com.apple.screensaver askForPasswordDelay -int 0
-sudo -p "[Security setup] Enter password to configure operator screen saver security: " -u "${OPERATOR_USERNAME}" defaults -currentHost write com.apple.screensaver askForPassword -int 1
-sudo -iu "${OPERATOR_USERNAME}" defaults -currentHost write com.apple.screensaver askForPasswordDelay -int 0
 log "Enabled immediate password requirement after screen saver"
 
 # Run software updates if not skipped
