@@ -15,7 +15,7 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 ## Target Configuration
 
 | Component | Specification |
-|-----------|---------------|
+| --- | --- |
 | Hardware | M4 Mac Mini, 16GB unified memory, 512GB SSD |
 | macOS | 15.x (Sequoia) or later |
 | Primary user | `andrewrich` (existing Apple Account, created during macOS setup) |
@@ -26,7 +26,7 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 ### Removed from Original
 
 | Component | Rationale |
-|-----------|-----------|
+| --- | --- |
 | `operator` user | Unnecessary for single-user dev server |
 | Automatic login | Not needed; machine stays logged in |
 | Plex, Transmission, rclone | Media server functionality not required |
@@ -37,7 +37,7 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 ### Retained from Original
 
 | Component | Rationale |
-|-----------|-----------|
+| --- | --- |
 | `prep-airdrop.sh` pattern | Proven deployment workflow |
 | 1Password CLI integration | Secure credential retrieval |
 | Hardware fingerprint validation | Prevents wrong-machine execution |
@@ -50,7 +50,7 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 ### Added/Modified
 
 | Component | Description |
-|-----------|-------------|
+| --- | --- |
 | Xcode CLI tools + full Xcode | iOS/macOS build capability |
 | Android SDK + command-line tools | Android build capability |
 | Node.js (via nvm or Homebrew) | React Native/Expo toolchain |
@@ -68,6 +68,7 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 **New**: Assumes `andrewrich` user already exists (created during macOS Setup Assistant with Apple Account). Script configures existing user rather than creating one.
 
 This simplifies the flow:
+
 - No user creation
 - No password generation/storage
 - No automatic login configuration
@@ -75,7 +76,7 @@ This simplifies the flow:
 
 ## File Structure (Post-Fork)
 
-```
+```text
 .
 ├── README.md                    # Updated for dev server purpose
 ├── SPEC.md                      # This document
@@ -135,7 +136,7 @@ XCODE_VERSION=""                   # Empty = latest from App Store
 
 ### formulae.txt
 
-```
+```text
 # Core development
 git
 gh
@@ -177,7 +178,7 @@ pipx
 
 ### casks.txt
 
-```
+```text
 android-studio
 android-commandlinetools
 iterm2
@@ -237,6 +238,7 @@ Note: Xcode installed via App Store or mas CLI, not Homebrew cask.
 ### Xcode Installation
 
 Full Xcode must be installed via:
+
 - App Store (requires Apple ID sign-in)
 - `mas` CLI tool (can automate App Store installs)
 - Direct .xip download from developer.apple.com (requires auth)
@@ -250,6 +252,7 @@ mas install 497799835  # Xcode
 ### First-Boot GUI Requirement
 
 Like the original, `first-boot.sh` requires a local GUI session for:
+
 - System Settings automation (if any)
 - Potential Xcode license acceptance dialogs
 - Any macOS permission prompts
@@ -297,6 +300,6 @@ Script should verify:
 
 ## References
 
-- Original project: https://github.com/smartwatermelon/mac-server-setup
-- Dotfiles repo: https://github.com/smartwatermelon/dotfiles (assumed)
+- Original project: <https://github.com/smartwatermelon/mac-server-setup>
+- Dotfiles repo: <https://github.com/smartwatermelon/dotfiles> (assumed)
 - Bash config: Project files in current conversation context
