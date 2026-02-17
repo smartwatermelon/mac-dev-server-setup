@@ -1,6 +1,6 @@
 # First Boot Instructions
 
-The `first-boot.sh` script performs complete automated setup of your Mac Mini server after the macOS Setup Wizard is complete.
+The `first-boot.sh` script performs complete automated setup of your Mac Mini dev server after the macOS Setup Wizard is complete.
 
 ## Before You Begin
 
@@ -16,7 +16,7 @@ The `first-boot.sh` script performs complete automated setup of your Mac Mini se
 5. **Reach the desktop** before proceeding
 6. **Enable AirDrop:** Press Cmd-Shift-R to open AirDrop, and select "Allow me to be discovered by: Everyone"
 
-> **📋 Detailed Setup Guide**: For step-by-step instructions on navigating Apple's Setup Assistant dialogs, see [Apple First-Boot Dialog Guide](apple-first-boot-dialogs.md)
+> **Detailed Setup Guide**: For step-by-step instructions on navigating Apple's Setup Assistant dialogs, see [Apple First-Boot Dialog Guide](apple-first-boot-dialogs.md)
 
 ### Transfer Setup Files
 
@@ -34,11 +34,10 @@ The `first-boot.sh` script performs complete automated setup of your Mac Mini se
 The script performs these major configuration steps:
 
 * **System Security**: TouchID sudo, SSH access, firewall configuration
-* **User Management**: Operator account creation, automatic login setup
 * **Network Configuration**: WiFi connection, hostname setting
 * **Power Management**: Server-optimized power settings
 * **Package Installation**: Homebrew, essential tools and applications
-* **Application Preparation**: Setup directory structure for native applications
+* **Development Environment**: Xcode CLI tools, shell configuration, dotfiles
 
 ## Running First Boot Setup
 
@@ -121,10 +120,10 @@ The script waits for you to complete Apple ID setup before continuing.
 The script automatically opens a second Terminal window showing live setup logs:
 
 ```plaintext
-[2025-08-04 10:30:15] ====== Starting Mac Mini Server Setup ======
+[2025-08-04 10:30:15] ====== Starting Mac Mini Dev Server Setup ======
 [2025-08-04 10:30:16] Running as user: admin
-[2025-08-04 10:30:16] ✅ TouchID sudo configuration
-[2025-08-04 10:30:18] ✅ SSH has been enabled successfully
+[2025-08-04 10:30:16] TouchID sudo configuration
+[2025-08-04 10:30:18] SSH has been enabled successfully
 ...
 ```
 
@@ -140,9 +139,9 @@ The script automatically opens a second Terminal window showing live setup logs:
 
 * Xcode Command Line Tools, Homebrew, packages
 
-**Phase 3**: Application preparation (2-5 minutes)
+**Phase 3**: Development environment (2-5 minutes)
 
-* Directory setup for native applications, dock cleanup, final configuration
+* Shell configuration, dotfiles, dock cleanup, final configuration
 
 ## Expected Prompts and Interactions
 
@@ -175,9 +174,6 @@ From your development Mac:
 ```bash
 # Test admin access
 ssh admin@macmini.local
-
-# Test operator access (after reboot)
-ssh operator@macmini.local
 ```
 
 ### Verify Services
@@ -222,11 +218,11 @@ Example summary output:
 Setup completed, but 1 error and 2 warnings occurred:
 
 ERRORS:
-  ❌ Installing Homebrew Packages: Formula installation failed: some-package
+  Installing Homebrew Packages: Formula installation failed: some-package
 
 WARNINGS:
-  ⚠️ Configuring SSH Access: Remote Desktop setup failed or was cancelled
-  ⚠️ Setting Up Operator Account: Password verification warning
+  Configuring SSH Access: Remote Desktop setup failed or was cancelled
+  Setting Up Time Machine: Backup configuration warning
 
 Review the full log for details: ~/.local/state/macmini-setup.log
 ```
@@ -294,11 +290,10 @@ This means you're trying to run the script on your development Mac instead of th
 After successful first boot setup:
 
 1. **Reboot the system** (recommended)
-2. **Login as operator** (automatic after reboot)
-3. **Follow [Operator Setup Instructions](operator.md)**
-4. **Run application setup scripts** in `~/app-setup/`
+2. **Verify SSH access** from your development machine
+3. **Install additional development tools** as needed
 
-The Mac Mini is now ready for native application deployment and service configuration.
+The Mac Mini is now ready for use as a development server.
 
 ## Post-Setup Configuration
 
@@ -306,12 +301,10 @@ The Mac Mini is now ready for native application deployment and service configur
 
 To sync Safari extensions across your devices (iPhone, iPad, Mac), enable extension syncing:
 
-1. **Open System Settings** → **Apple ID** → **iCloud**
+1. **Open System Settings** -> **Apple ID** -> **iCloud**
 2. **Enable Safari syncing** if not already enabled
-3. **In Safari**: Go to **Safari** → **Settings** → **Extensions**
+3. **In Safari**: Go to **Safari** -> **Settings** -> **Extensions**
 4. **Enable "Sync Safari Extensions"** to share extensions across all your devices
-
-This ensures your Safari extensions are available on your Mac Mini server when accessing web interfaces for applications like Plex, Transmission, or other web-based management tools.
 
 **Reference**: [Safari Extension Syncing Guide](https://ios.gadgethacks.com/how-to/safari-now-lets-you-sync-and-manage-all-your-web-extensions-across-your-iphone-ipad-and-mac-0385127/)
 
@@ -325,7 +318,7 @@ The following issues are known limitations of the current setup system:
 
 **Workaround**:
 
-* Manually import profiles via iTerm2 → **Preferences** → **Profiles** → **Other Actions** → **Import JSON Profiles**
+* Manually import profiles via iTerm2 -> **Preferences** -> **Profiles** -> **Other Actions** -> **Import JSON Profiles**
 * Or restart iTerm2 multiple times until profiles are recognized
 
 ### System Notifications

@@ -1,24 +1,28 @@
 # Configuration Reference
 
-The Mac Mini server setup is controlled by the `config.conf` file, which allows customization of server identity, credentials, and behavior without modifying the setup scripts.
+The Mac Mini dev server setup is controlled by the `config.conf` file, which allows customization of server identity, credentials, and behavior without modifying the setup scripts.
 
 ## Configuration File Format
 
 The configuration uses simple shell variable syntax:
 
 ```bash
-# config.conf - Configuration file for Mac Mini server setup
+# config.conf - Configuration file for Mac Mini dev server setup
 
 # Server identity
-SERVER_NAME="MACMINI"
-OPERATOR_USERNAME="operator"
+SERVER_NAME="macmini"
 
 # 1Password configuration
 ONEPASSWORD_VAULT="personal"
-ONEPASSWORD_OPERATOR_ITEM="operator"
-ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine"
-ONEPASSWORD_PLEX_NAS_ITEM="Plex NAS"
 ONEPASSWORD_APPLEID_ITEM="Apple"
+ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine NAS"
+SSH_KEY_ITEM="SSH Keys"
+
+# Development configuration
+DOTFILES_REPO="git@github.com:smartwatermelon/dotfiles.git"
+ANDROID_SDK_VERSION="34"
+NODE_VERSION="lts"
+XCODE_VERSION=""
 
 # Monitoring
 MONITORING_EMAIL="your-email@example.com"
@@ -33,17 +37,10 @@ HOSTNAME_OVERRIDE=""
 
 **SERVER_NAME**: Primary identifier for the server
 
-- **Default**: "MACMINI"
+- **Default**: "macmini"
 - **Used for**: Hostname, volume name, network identification
-- **Format**: Uppercase, no spaces (DNS-safe)
-- **Example**: `SERVER_NAME="HOMESERVER"`
-
-**OPERATOR_USERNAME**: Name for the day-to-day user account
-
-- **Default**: "operator"
-- **Used for**: User account creation, SSH access, automatic login
-- **Format**: Lowercase, no spaces (Unix username format)
-- **Example**: `OPERATOR_USERNAME="server"`
+- **Format**: Lowercase or uppercase, no spaces (DNS-safe)
+- **Example**: `SERVER_NAME="devbox"`
 
 ### 1Password Integration
 
@@ -54,26 +51,46 @@ The system uses 1Password for initial credential retrieval during setup preparat
 - **Default**: "personal"
 - **Example**: `ONEPASSWORD_VAULT="Infrastructure"`
 
-**ONEPASSWORD_OPERATOR_ITEM**: Login item for operator account password
-
-- **Default**: "operator"
-- **Requirements**: Login item with username and password
-- **Auto-creation**: Script creates item if it doesn't exist
-
 **ONEPASSWORD_TIMEMACHINE_ITEM**: Login item for Time Machine backup credentials
 
-- **Default**: "TimeMachine"
+- **Default**: "TimeMachine NAS"
 - **Requirements**: Login item with username, password, and URL field
-
-**ONEPASSWORD_PLEX_NAS_ITEM**: Login item for Plex media NAS credentials
-
-- **Default**: "Plex NAS"
-- **Requirements**: Login item with username, password, and URL field (optional)
 
 **ONEPASSWORD_APPLEID_ITEM**: Login item for Apple ID credentials
 
 - **Default**: "Apple"
 - **Requirements**: Login item with Apple ID email and password
+
+**SSH_KEY_ITEM**: 1Password item containing SSH keys for deployment
+
+- **Default**: "SSH Keys"
+- **Requirements**: Item with SSH key material
+
+### Development Configuration
+
+**DOTFILES_REPO**: Git repository URL for dotfiles
+
+- **Default**: (user-specific)
+- **Usage**: Cloned to the server for shell/editor configuration
+- **Example**: `DOTFILES_REPO="git@github.com:user/dotfiles.git"`
+
+**ANDROID_SDK_VERSION**: Android SDK platform version to install
+
+- **Default**: "34"
+- **Usage**: Installed via Android command-line tools
+- **Example**: `ANDROID_SDK_VERSION="35"`
+
+**NODE_VERSION**: Node.js version to install via nvm
+
+- **Default**: "lts"
+- **Usage**: Installed via nvm during setup
+- **Example**: `NODE_VERSION="20"`
+
+**XCODE_VERSION**: Xcode version to install
+
+- **Default**: Empty (installs latest from App Store)
+- **Usage**: Specific version can be set if needed
+- **Example**: `XCODE_VERSION="15.4"`
 
 ### Optional Overrides
 
@@ -81,7 +98,7 @@ The system uses 1Password for initial credential retrieval during setup preparat
 
 - **Default**: Empty (uses SERVER_NAME)
 - **When to use**: When you want a different network hostname
-- **Example**: `HOSTNAME_OVERRIDE="media-server"`
+- **Example**: `HOSTNAME_OVERRIDE="dev-server"`
 
 **MONITORING_EMAIL**: Email address for system notifications
 
@@ -107,18 +124,11 @@ HOSTNAME="${HOSTNAME_OVERRIDE:-${SERVER_NAME}}"
 HOSTNAME_LOWER="$(tr '[:upper:]' '[:lower:]' <<<"${HOSTNAME}")"
 ```
 
-**OPERATOR_FULLNAME**: Display name for operator account
-
-```bash
-OPERATOR_FULLNAME="${SERVER_NAME} Operator"
-```
-
 ### File Paths
 
 **Setup directory structure** based on SERVER_NAME:
 
-- Setup package: `~/macmini-setup` (for SERVER_NAME="MACMINI")
-- Scripts directory: `~/macmini-scripts`
+- Setup package: `~/macmini-setup` (for SERVER_NAME="macmini")
 - Log files: `~/.local/state/macmini-setup.log`
 
 ## Customization Examples
@@ -128,19 +138,19 @@ OPERATOR_FULLNAME="${SERVER_NAME} Operator"
 For managing multiple Mac Mini servers with different roles:
 
 ```bash
-# Media server configuration
-SERVER_NAME="MEDIASERVER"
-OPERATOR_USERNAME="media"
-ONEPASSWORD_OPERATOR_ITEM="MediaServer Operator"
-ONEPASSWORD_TIMEMACHINE_ITEM="MediaServer TimeMachine"
+# Development server configuration
+SERVER_NAME="DEVSERVER"
+ONEPASSWORD_TIMEMACHINE_ITEM="DevServer TimeMachine"
+DOTFILES_REPO="git@github.com:user/dotfiles.git"
+NODE_VERSION="lts"
 ```
 
 ```bash
-# Development server configuration
-SERVER_NAME="DEVSERVER"
-OPERATOR_USERNAME="dev"
-ONEPASSWORD_OPERATOR_ITEM="DevServer Operator"
-ONEPASSWORD_TIMEMACHINE_ITEM="DevServer TimeMachine"
+# CI server configuration
+SERVER_NAME="CISERVER"
+ONEPASSWORD_TIMEMACHINE_ITEM="CIServer TimeMachine"
+NODE_VERSION="20"
+ANDROID_SDK_VERSION="35"
 ```
 
 ### Corporate Environment
@@ -149,9 +159,7 @@ For business use with organizational 1Password:
 
 ```bash
 SERVER_NAME="INFRASTRUCTURE"
-OPERATOR_USERNAME="sysadmin"
 ONEPASSWORD_VAULT="IT Infrastructure"
-ONEPASSWORD_OPERATOR_ITEM="Mac Mini Infrastructure Operator"
 ONEPASSWORD_TIMEMACHINE_ITEM="Enterprise Backup - Mac Mini"
 ONEPASSWORD_APPLEID_ITEM="Apple ID Corporate"
 MONITORING_EMAIL="it-alerts@company.com"
@@ -180,14 +188,8 @@ op whoami
 # Verify vault exists
 op vault get "${ONEPASSWORD_VAULT}"
 
-# Check operator item (auto-created if missing)
-op item get "${ONEPASSWORD_OPERATOR_ITEM}" --vault "${ONEPASSWORD_VAULT}" || echo "Will be created"
-
 # Verify Time Machine item exists
 op item get "${ONEPASSWORD_TIMEMACHINE_ITEM}" --vault "${ONEPASSWORD_VAULT}"
-
-# Verify Plex NAS item exists (optional - will fall back to plex_nas.conf file)
-op item get "${ONEPASSWORD_PLEX_NAS_ITEM}" --vault "${ONEPASSWORD_VAULT}" || echo "Will use plex_nas.conf file"
 
 # Verify Apple ID item exists
 op item get "${ONEPASSWORD_APPLEID_ITEM}" --vault "${ONEPASSWORD_VAULT}"
@@ -202,22 +204,20 @@ Test that your chosen server name resolves properly on your network:
 ping "${HOSTNAME_LOWER}.local"
 
 # Test SSH connectivity
-ssh operator@"${HOSTNAME_LOWER}.local"
+ssh admin@"${HOSTNAME_LOWER}.local"
 ```
 
 ## Security Considerations
 
 ### Credential Storage
 
-The system uses a secure four-stage credential management process via macOS Keychain Services. See [Keychain-Based Credential Management](keychain-credential-management.md) for complete implementation details.
+The system uses a secure credential management process via macOS Keychain Services. See [Keychain-Based Credential Management](keychain-credential-management.md) for complete implementation details.
 
 **SSH Keys**: Public keys only are transferred; private keys remain on your development Mac.
 
 ### Access Control
 
-**Operator Account Isolation**: The operator account has limited sudo access appropriate for server management.
-
-**SSH Key Sharing**: Admin and operator accounts share SSH keys by default for convenience, but this can be customized.
+**SSH Key Sharing**: SSH keys are deployed for secure remote access.
 
 **Apple ID Sharing**: One-time sharing links expire after first use for security.
 
@@ -284,7 +284,6 @@ tree
 # Add to config/casks.txt
 visual-studio-code
 firefox
-vlc
 ```
 
 ### Environment-Specific Overrides
@@ -292,21 +291,21 @@ vlc
 Create environment-specific configuration files:
 
 ```bash
-# config-production.conf
-SERVER_NAME="PRODSERVER"
-ONEPASSWORD_VAULT="Production Infrastructure"
-MONITORING_EMAIL="production-alerts@company.com"
+# config-dev.conf
+SERVER_NAME="DEVSERVER"
+ONEPASSWORD_VAULT="Development"
+MONITORING_EMAIL="dev-alerts@company.com"
 
-# config-staging.conf
-SERVER_NAME="STAGINGSERVER"
-ONEPASSWORD_VAULT="Staging Infrastructure"
-MONITORING_EMAIL="staging-alerts@company.com"
+# config-ci.conf
+SERVER_NAME="CISERVER"
+ONEPASSWORD_VAULT="CI Infrastructure"
+MONITORING_EMAIL="ci-alerts@company.com"
 ```
 
 Use with prep-airdrop.sh by copying the appropriate config:
 
 ```bash
-cp config-production.conf config/config.conf
+cp config-dev.conf config/config.conf
 ./prep-airdrop.sh
 ```
 
