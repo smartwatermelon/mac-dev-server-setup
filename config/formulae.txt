@@ -1,51 +1,50 @@
+# Core development
+git
+gh
+watchman
+cocoapods
+fastlane
+
+# Build tools
+cmake
+ninja
+
+# Shell environment
 bash
 bash-completion@2
-bat
-caddy
+shellcheck
+shfmt
+
+# Utilities retained from original
 coreutils
 dockutil
-ffmpeg
-fileicon
 findutils
-gawk
-gh
-git
-gnu-getopt
 gnu-sed
 gnu-tar
-gnu-time
-gnu-units
-gnu-which
-gnupg
 grep
-imagemagick
-ipcalc
-iproute2mac
-launchctl-completion
-less
-liquidprompt
+jq
+yq
+tree
+ripgrep
+fd
+bat
+eza
 logrotate
 mas
-moreutils
-netcat
-nmap
-node
-open-completion
-openssh
-pipx
-pv
-python@3.13
-qrencode
-rclone
-ripgrep-all
-rsync
-s-search
-shellcheck
-teamookla/speedtest/speedtest
-telnet
-terminal-notifier
 tmux
-tree
 vim
-watch
-yt-dlp
+
+# Node.js ecosystem
+node
+yarn
+pnpm
+
+# Java (for Android/Gradle)
+temurin
+
+# Python (for various tooling)
+python@3.12
+pipx
+
+# Network tools (retained)
+openssh

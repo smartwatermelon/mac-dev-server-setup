@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 #
-# first-boot.sh - Mac Mini Server System Provisioning & Configuration
+# first-boot.sh - Mac Mini Dev Server System Provisioning & Configuration
 #
-# This script performs comprehensive macOS server provisioning including:
+# This script performs comprehensive macOS dev server provisioning including:
 # - Hardware fingerprint validation and security checks
 # - FileVault compatibility verification with auto-disable option
 # - Administrator password collection and validation
-# - Operator user account creation with automatic login configuration
-# - SSH key deployment for both admin and operator accounts
+# - SSH key deployment for admin account
 # - External keychain import and credential extraction
 # - Multi-phase system configuration via 15+ specialized modules
 # - Comprehensive logging and error collection with end-of-run validation
@@ -26,9 +25,7 @@
 #   --skip-packages   Skip package installation from formulae.txt and casks.txt
 #
 # SYSTEM MODIFICATIONS PERFORMED:
-# - Creates operator user account with full name and password hint
-# - Configures automatic login for operator account (/etc/kcpassword)
-# - Deploys SSH keys for both administrator and operator accounts
+# - Deploys SSH keys for administrator account
 # - Imports credentials from external keychain to system keychain
 # - Calls 15+ setup modules: TouchID, WiFi, SSH, Remote Desktop, Apple ID, etc.
 # - Configures system preferences, power management, firewall, logging
@@ -43,7 +40,7 @@
 # ENVIRONMENT VARIABLES (Advanced):
 # - HOSTNAME_OVERRIDE: Custom hostname different from SERVER_NAME
 # - RERUN_AFTER_FDA: Set to true when rerunning after Full Disk Access grant
-# - All config.conf variables: SERVER_NAME, OPERATOR_USERNAME, 1Password items
+# - All config.conf variables: SERVER_NAME, 1Password items
 #
 # ERROR HANDLING:
 # - Comprehensive error and warning collection across all phases
@@ -68,7 +65,6 @@ set -euo pipefail
 ADMIN_USERNAME=$(whoami)                                  # Set this once and use throughout
 ADMINISTRATOR_PASSWORD=""                                 # Get it interactively later
 SETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where AirDropped files are located (script now at root)
-SSH_KEY_SOURCE="${SETUP_DIR}/ssh_keys"
 RERUN_AFTER_FDA=false
 NEED_SYSTEMUI_RESTART=false
 NEED_CONTROLCENTER_RESTART=false
@@ -118,15 +114,11 @@ else
   echo "Using default values - you may want to create config.conf"
   # Set fallback defaults
   SERVER_NAME="MACMINI"
-  OPERATOR_USERNAME="operator"
-  ONEPASSWORD_VAULT="personal"
-  ONEPASSWORD_OPERATOR_ITEM="operator"
 fi
 
 # Set derived variables
 HOSTNAME="${HOSTNAME_OVERRIDE:-${SERVER_NAME}}"
 HOSTNAME_LOWER="$(tr '[:upper:]' '[:lower:]' <<<"${HOSTNAME}")"
-OPERATOR_FULLNAME="${SERVER_NAME} Operator"
 
 # Set Homebrew prefix based on architecture for all modules
 ARCH="$(arch)"
@@ -387,25 +379,6 @@ check_success() {
   fi
 }
 
-# Keychain credential management functions
-# Secure credential retrieval function
-get_keychain_credential() {
-  local service="$1"
-  local account="$2"
-
-  local credential
-  if credential=$(security find-generic-password \
-    -s "${service}" \
-    -a "${account}" \
-    -w 2>/dev/null); then
-    echo "${credential}"
-    return 0
-  else
-    collect_error "Failed to retrieve credential from Keychain: ${service}"
-    return 1
-  fi
-}
-
 # Import credentials from external keychain and populate user keychains
 import_external_keychain_credentials() {
 
@@ -465,49 +438,6 @@ import_external_keychain_credentials() {
     return 1
   fi
 
-  # Import operator credential
-  # shellcheck disable=SC2154 # KEYCHAIN_OPERATOR_SERVICE loaded from sourced manifest
-  if operator_password=$(security find-generic-password -s "${KEYCHAIN_OPERATOR_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" -w "${EXTERNAL_KEYCHAIN}" 2>/dev/null); then
-    # Store in default keychain
-    security delete-generic-password -s "${KEYCHAIN_OPERATOR_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" &>/dev/null || true
-    if security add-generic-password -s "${KEYCHAIN_OPERATOR_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" -w "${operator_password}" -D "Mac Server Setup - Operator Account Password" -A -U; then
-      # Verify storage
-      if compare_password=$(security find-generic-password -s "${KEYCHAIN_OPERATOR_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" -w 2>/dev/null); then
-        if [[ "${operator_password}" == "${compare_password}" ]]; then
-          show_log "✅ Operator credential imported to administrator keychain"
-        else
-          collect_error "Operator credential verification failed after import"
-          return 1
-        fi
-      else
-        collect_error "Operator credential import verification failed"
-        return 1
-      fi
-    else
-      collect_error "Failed to import operator credential to administrator keychain"
-      return 1
-    fi
-    unset operator_password compare_password
-  else
-    collect_error "Failed to retrieve operator credential from external keychain"
-    return 1
-  fi
-
-  # Import Plex NAS credential
-  # shellcheck disable=SC2154 # KEYCHAIN_PLEX_NAS_SERVICE loaded from sourced manifest
-  if plex_nas_credential=$(security find-generic-password -s "${KEYCHAIN_PLEX_NAS_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" -w "${EXTERNAL_KEYCHAIN}" 2>/dev/null); then
-    security delete-generic-password -s "${KEYCHAIN_PLEX_NAS_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" &>/dev/null || true
-    if security add-generic-password -s "${KEYCHAIN_PLEX_NAS_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" -w "${plex_nas_credential}" -D "Mac Server Setup - Plex NAS Credentials" -A -U; then
-      show_log "✅ Plex NAS credential imported to administrator keychain"
-    else
-      collect_error "Failed to import Plex NAS credential to administrator keychain"
-      return 1
-    fi
-    unset plex_nas_credential
-  else
-    collect_warning "Plex NAS credential not found in external keychain (may be optional)"
-  fi
-
   # Import TimeMachine credential (optional)
   # shellcheck disable=SC2154 # KEYCHAIN_TIMEMACHINE_SERVICE loaded from sourced manifest
   if timemachine_credential=$(security find-generic-password -s "${KEYCHAIN_TIMEMACHINE_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" -w "${EXTERNAL_KEYCHAIN}" 2>/dev/null); then
@@ -534,20 +464,6 @@ import_external_keychain_credentials() {
     unset wifi_credential
   else
     show_log "⚠️ WiFi credential not found in external keychain (optional)"
-  fi
-
-  # Import OpenSubtitles credential (optional)
-  # shellcheck disable=SC2154 # KEYCHAIN_OPENSUBTITLES_SERVICE loaded from sourced manifest
-  if opensubtitles_credential=$(security find-generic-password -s "${KEYCHAIN_OPENSUBTITLES_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" -w "${EXTERNAL_KEYCHAIN}" 2>/dev/null); then
-    security delete-generic-password -s "${KEYCHAIN_OPENSUBTITLES_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" &>/dev/null || true
-    if security add-generic-password -s "${KEYCHAIN_OPENSUBTITLES_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" -w "${opensubtitles_credential}" -D "Mac Server Setup - OpenSubtitles Credentials" -A -U; then
-      show_log "✅ OpenSubtitles credential imported to administrator keychain"
-    else
-      collect_warning "Failed to import OpenSubtitles credential to administrator keychain"
-    fi
-    unset opensubtitles_credential
-  else
-    show_log "⚠️ OpenSubtitles credential not found in external keychain (optional)"
   fi
 
   return 0
@@ -625,8 +541,7 @@ else
     echo ""
     echo "FileVault disk encryption is ENABLED on this system."
     echo ""
-    echo "This is incompatible with automatic login functionality,"
-    echo "which is required for the operator account setup."
+    echo "This is incompatible with automatic login functionality."
     echo ""
     echo "RESOLUTION OPTIONS:"
     echo "1. Try disabling FileVault via command line (fastest):"
@@ -646,8 +561,6 @@ else
     echo "   • Ensure automatic login is enabled for admin account"
     echo ""
     echo "FileVault prevents automatic login for security reasons."
-    echo "This Mac Mini server setup requires auto-login for the"
-    echo "operator account to work properly."
     echo ""
     echo "=================================================================="
     echo ""
@@ -716,8 +629,7 @@ else
     echo "FileVault has DEFERRED ENABLEMENT scheduled."
     echo "This means it will be enabled after the next reboot."
     echo ""
-    echo "This will disable automatic login functionality required"
-    echo "for the operator account."
+    echo "This will disable automatic login functionality."
     echo ""
     echo "RECOMMENDATION:"
     echo "Cancel FileVault enablement before it takes effect:"
@@ -764,7 +676,7 @@ touch "${LOG_FILE}"
 chmod 600 "${LOG_FILE}"
 
 # Print header
-set_section "Starting Mac Mini '${SERVER_NAME}' Server Setup"
+set_section "Starting Mac Mini '${SERVER_NAME}' Dev Server Setup"
 log "Running as user: ${ADMIN_USERNAME}"
 timestamp="$(date)"
 log "Date: ${timestamp}"
@@ -897,8 +809,6 @@ sudo -p "[Remote management] Enter password to configure admin privileges: " /Sy
 }
 check_success "Admin Remote Management privileges (if services enabled)"
 
-log "Note: Operator user privileges will be configured after account creation"
-
 #
 # APPLE ID & ICLOUD CONFIGURATION - delegated to module
 #
@@ -908,256 +818,6 @@ if [[ "${FORCE}" == true ]]; then
   "${SETUP_DIR}/scripts/setup-apple-id.sh" --force
 else
   "${SETUP_DIR}/scripts/setup-apple-id.sh"
-fi
-
-# Create operator account if it doesn't exist
-set_section "Setting Up Operator Account"
-if dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-  log "Operator account already exists"
-else
-  log "Creating operator account"
-
-  # Load keychain manifest
-  manifest_file="${SETUP_DIR}/config/keychain_manifest.conf"
-  # shellcheck source=/dev/null
-  source "${manifest_file}"
-
-  # Get credential securely from Keychain
-  if operator_password=$(get_keychain_credential "${KEYCHAIN_OPERATOR_SERVICE}" "${KEYCHAIN_ACCOUNT}"); then
-    log "Using password from Keychain (${ONEPASSWORD_OPERATOR_ITEM})"
-  else
-    log "❌ Failed to retrieve operator password from Keychain"
-    exit 1
-  fi
-
-  # Create the operator account
-  sudo -p "[Account setup] Enter password to create operator account: " sysadminctl -addUser "${OPERATOR_USERNAME}" -fullName "${OPERATOR_FULLNAME}" -password "${operator_password}" -hint "See 1Password ${ONEPASSWORD_OPERATOR_ITEM} for password" 2>/dev/null
-  check_success "Operator account creation"
-
-  # Comprehensive verification of operator account creation
-  verify_operator_account_creation() {
-    local verification_failed=false
-
-    log "Performing comprehensive operator account verification..."
-
-    # Test 1: Account exists in directory services
-    if ! dscl . -list /Users 2>/dev/null | grep -q "^${OPERATOR_USERNAME}$"; then
-      collect_error "Operator account does not exist in directory services"
-      verification_failed=true
-    else
-      log "✓ Operator account exists in directory services"
-    fi
-
-    # Test 2: Password authentication works
-    if ! dscl /Local/Default -authonly "${OPERATOR_USERNAME}" "${operator_password}" 2>/dev/null; then
-      collect_error "Operator account password authentication failed"
-      verification_failed=true
-    else
-      log "✓ Operator account password authentication successful"
-    fi
-
-    # Test 3: Home directory exists and is accessible
-    local home_dir="/Users/${OPERATOR_USERNAME}"
-    if [[ ! -d "${home_dir}" ]]; then
-      collect_error "Operator home directory does not exist: ${home_dir}"
-      verification_failed=true
-    else
-      # Check ownership using stat
-      local owner_info
-      owner_info=$(stat -f "%Su:%Sg" "${home_dir}" 2>/dev/null || echo "unknown:unknown")
-      if [[ "${owner_info}" == "${OPERATOR_USERNAME}:staff" ]]; then
-        log "✓ Operator home directory exists with correct ownership"
-      else
-        collect_warning "Operator home directory ownership may be incorrect: ${owner_info}"
-      fi
-    fi
-
-    # Overall status
-    if [[ "${verification_failed}" == "true" ]]; then
-      collect_error "Operator account creation verification FAILED"
-      return 1
-    else
-      show_log "✅ Operator account creation verification PASSED"
-      return 0
-    fi
-  }
-
-  # Run the verification
-  if ! verify_operator_account_creation; then
-    unset operator_password
-    exit 1
-  fi
-
-  # Store reference to 1Password (don't store actual password)
-  echo "Operator account password is stored in 1Password: op://${ONEPASSWORD_VAULT}/${ONEPASSWORD_OPERATOR_ITEM}/password" >"/Users/${ADMIN_USERNAME}/Documents/operator_password_reference.txt"
-  chmod 600 "/Users/${ADMIN_USERNAME}/Documents/operator_password_reference.txt"
-
-  show_log "Operator account created successfully"
-
-  # Note: Operator keychain population no longer needed
-  # SMB credentials are now embedded directly in mount scripts during plex-setup.sh
-  # This eliminates the need to unlock operator keychain before first login
-  log "✅ Operator keychain operations skipped - credentials embedded in service scripts"
-
-  # Clear password from memory since we don't need it for keychain operations
-  unset operator_password
-
-  # Skip setup screens for operator account (more aggressive approach)
-  log "Configuring operator account to skip setup screens"
-  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.SetupAssistant DidSeeCloudSetup -bool true
-  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.SetupAssistant SkipCloudSetup -bool true
-  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.SetupAssistant DidSeePrivacy -bool true
-  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.SetupAssistant GestureMovieSeen none
-  PRODUCT_VERSION=$(sw_vers -productVersion)
-  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.SetupAssistant LastSeenCloudProductVersion "${PRODUCT_VERSION}"
-  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.screensaver showClock -bool false
-
-  # Screen Time and Apple Intelligence
-  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.ScreenTimeAgent DidCompleteSetup -bool true
-  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.intelligenceplatform.ui SetupHasBeenDisplayed -bool true
-
-  # Accessibility and Data & Privacy
-  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.SetupAssistant DidSeeDataAndPrivacy -bool true
-
-  # TouchID setup bypass (this might help with the password confusion)
-  sudo -iu "${OPERATOR_USERNAME}" defaults write com.apple.SetupAssistant DidSeeTouchID -bool true
-  check_success "Operator setup screen suppression"
-
-  # Set up operator SSH keys if available
-  if [[ -d "${SSH_KEY_SOURCE}" ]] && [[ -f "${SSH_KEY_SOURCE}/operator_authorized_keys" ]]; then
-    OPERATOR_SSH_DIR="/Users/${OPERATOR_USERNAME}/.ssh"
-    log "Setting up SSH keys for operator account"
-
-    sudo -p "[SSH setup] Enter password to configure operator SSH keys: " mkdir -p "${OPERATOR_SSH_DIR}"
-    sudo cp "${SSH_KEY_SOURCE}/operator_authorized_keys" "${OPERATOR_SSH_DIR}/authorized_keys"
-    sudo chmod 700 "${OPERATOR_SSH_DIR}"
-    sudo chmod 600 "${OPERATOR_SSH_DIR}/authorized_keys"
-    sudo chown -R "${OPERATOR_USERNAME}" "${OPERATOR_SSH_DIR}"
-
-    check_success "Operator SSH key setup"
-
-    # Add operator to SSH access group
-    log "Adding operator to SSH access group"
-    sudo -p "[SSH setup] Enter password to add operator to SSH access group: " dseditgroup -o edit -a "${OPERATOR_USERNAME}" -t user com.apple.access_ssh
-    check_success "Operator SSH group membership"
-  fi
-
-  # Configure Remote Management for operator user (now that account exists)
-  log "Configuring Remote Management privileges for operator user"
-  sudo -p "[Remote management] Enter password to configure operator privileges: " /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-    -configure -users "${OPERATOR_USERNAME}" \
-    -access -on \
-    -privs -all
-
-  check_success "Operator Remote Management privileges"
-  show_log "✅ Remote Management configured for operator user"
-fi
-
-# Fast User Switching - handled by system preferences module
-
-# Configure automatic login for operator account (whether new or existing)
-section "Automatic login for operator account"
-log "Configuring automatic login for operator account"
-# Load keychain manifest
-manifest_file="${SETUP_DIR}/config/keychain_manifest.conf"
-# shellcheck source=/dev/null
-source "${manifest_file}"
-
-# Get credential securely from admin Keychain for auto-login
-log "Retrieving operator password from admin keychain for automatic login setup"
-if operator_password=$(get_keychain_credential "${KEYCHAIN_OPERATOR_SERVICE}" "${KEYCHAIN_ACCOUNT}"); then
-  # Create the encoded password file that macOS uses for auto-login
-  encoded_password=$(echo "${operator_password}" | openssl enc -base64)
-  echo "${encoded_password}" | sudo -p "[Auto-login] Enter password to configure automatic login: " tee /etc/kcpassword >/dev/null
-  sudo chmod 600 /etc/kcpassword
-  check_success "Create auto-login password file"
-
-  # Set the auto-login user
-  sudo -p "[Auto-login] Enter password to set auto-login user: " defaults write /Library/Preferences/com.apple.loginwindow autoLoginUser "${OPERATOR_USERNAME}"
-  check_success "Set auto-login user"
-
-  # Clear passwords from memory immediately
-  unset operator_password encoded_password
-
-  # Comprehensive verification of auto-login configuration
-  verify_autologin_configuration() {
-    local verification_failed=false
-
-    log "Performing comprehensive auto-login verification..."
-
-    # Test 1: Auto-login user is correctly configured
-    local auto_login_user
-    auto_login_user=$(defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser 2>/dev/null || echo "")
-    if [[ "${auto_login_user}" != "${OPERATOR_USERNAME}" ]]; then
-      collect_error "Auto-login is not configured for operator account (current: ${auto_login_user:-none})"
-      verification_failed=true
-    else
-      log "✓ Auto-login is configured for operator account"
-    fi
-
-    # Test 2: Auto-login password file exists
-    if [[ ! -f "/etc/kcpassword" ]]; then
-      collect_error "Auto-login password file missing (/etc/kcpassword)"
-      verification_failed=true
-    else
-      local kcpassword_perms
-      kcpassword_perms=$(stat -f "%Mp%Lp" /etc/kcpassword 2>/dev/null || echo "unknown")
-      if [[ "${kcpassword_perms}" == "600" || "${kcpassword_perms}" == "0600" ]]; then
-        log "✓ Auto-login password file exists with correct permissions"
-      else
-        collect_error "Auto-login password file has incorrect permissions: ${kcpassword_perms} (should be 600)"
-        verification_failed=true
-      fi
-    fi
-
-    # Test 3: FileVault compatibility check (if not already done)
-    local filevault_status
-    filevault_status=$(fdesetup status 2>/dev/null || echo "unknown")
-    if [[ "${filevault_status}" == *"FileVault is On"* ]]; then
-      collect_error "FileVault is enabled - this will prevent auto-login from working"
-      verification_failed=true
-    elif [[ "${filevault_status}" == *"FileVault is Off"* ]]; then
-      log "✓ FileVault is disabled - auto-login compatibility confirmed"
-    else
-      collect_warning "FileVault status unclear for auto-login: ${filevault_status}"
-    fi
-
-    # Overall status
-    if [[ "${verification_failed}" == "true" ]]; then
-      collect_error "Auto-login configuration verification FAILED - operator may not auto-login"
-      return 1
-    else
-      show_log "✅ Auto-login configuration verification PASSED"
-      return 0
-    fi
-  }
-
-  # Run auto-login verification
-  if verify_autologin_configuration; then
-    show_log "✅ Automatic login configured and verified for ${OPERATOR_USERNAME}"
-  else
-    collect_error "Auto-login configuration failed verification"
-  fi
-else
-  collect_warning "Failed to retrieve operator password from admin keychain - skipping automatic login setup"
-  log "⚠️ Operator will need to log in manually on first boot"
-fi
-
-# Add operator to sudoers
-section "Configuring sudo access for operator"
-log "Adding operator account to sudoers"
-
-# Add operator to admin group for sudo access
-sudo -p "[Account setup] Enter password to add operator to admin group: " dseditgroup -o edit -a "${OPERATOR_USERNAME}" -t user admin
-check_success "Operator admin group membership"
-
-# Verify sudo access works for operator
-log "Verifying sudo access for operator"
-if sudo -p "[Account setup] Enter password to verify operator sudo access: " -u "${OPERATOR_USERNAME}" sudo -n true 2>/dev/null; then
-  show_log "✅ Operator sudo access verified (passwordless test)"
-else
-  # This is expected - they'll need to enter password for sudo
-  show_log "✅ Operator has sudo access (will require password)"
 fi
 
 # Fix scroll setting - handled by system preferences module
@@ -1255,9 +915,6 @@ if [[ "${FORCE}" == true ]]; then
 else
   "${SETUP_DIR}/scripts/setup-dock-configuration.sh"
 fi
-
-# Note: Operator first-login setup is now handled automatically via LaunchAgent
-# See the "Configuring operator account files" section above
 
 #
 # SHELL CONFIGURATION - delegated to module
@@ -1360,7 +1017,7 @@ show_collected_issues
 # Show completion dialog and open new Terminal window for app setup
 osascript <<EOF
 tell application "System Events"
-  display dialog "🎉 Server Setup Complete!" & return & return & "The base system configuration is now finished. Click OK to open a new Terminal window where you can run the application setup script." & return & return & "Next: Run ./run-app-setup.sh to install Plex, Transmission, FileBot, and other applications." buttons {"OK"} default button "OK" with title "Setup Complete"
+  display dialog "Dev Server Setup Complete!" & return & return & "The base system configuration is now finished. Click OK to open a new Terminal window where you can run the application setup script." & return & return & "Next: Run ./run-app-setup.sh to install development tools." buttons {"OK"} default button "OK" with title "Setup Complete"
 end tell
 
 tell application "Terminal"

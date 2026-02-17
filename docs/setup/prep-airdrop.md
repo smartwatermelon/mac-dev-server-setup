@@ -33,12 +33,11 @@ The system uses 1Password for initial credential retrieval during setup preparat
 
 Create these Login items in your 1Password vault before running the prep script:
 
-- **Operator Account**: Username and password for day-to-day server access
 - **Time Machine Backup**: NAS credentials with SMB URL for backup storage
-- **Plex NAS**: Media server credentials (optional - prompts if missing)
 - **Apple ID**: Your Apple ID for system setup
+- **SSH Keys**: SSH key material for deployment
 
-Item titles should match your `config.conf` settings (defaults: "operator", "TimeMachine", "Plex NAS", "Apple").
+Item titles should match your `config.conf` settings (defaults: "TimeMachine NAS", "Apple", "SSH Keys").
 
 ## Running AirDrop Prep
 
@@ -82,23 +81,6 @@ The prep script creates a complete setup package:
 
 ```plaintext
 macmini-setup/
-├── app-setup/
-│   ├── catch-setup.sh
-│   ├── config/
-│   │   ├── dropbox_sync.conf
-│   │   ├── FileBot_License_XXXXXXXX.psm
-│   │   ├── plex_nas.conf        # Plex NAS hostname configuration
-│   │   └── rclone.conf
-│   ├── filebot-setup.sh
-│   ├── plex-setup.sh
-│   ├── rclone-setup.sh
-│   ├── run-app-setup.sh
-│   ├── templates/
-│   │   ├── mount-nas-media.sh
-│   │   ├── start-plex.sh
-│   │   ├── start-rclone.sh
-│   │   └── transmission-done.sh
-│   └── transmission-setup.sh
 ├── bash/                        # Bash config (if configured)
 ├── config/
 │   ├── apple_id_password.url    # One-time Apple ID link
@@ -116,9 +98,7 @@ macmini-setup/
 ├── first-boot.sh                # Main setup script
 ├── README.md                    # Setup instructions
 ├── scripts/
-│   ├── operator-first-login.sh  # Operator customization (runs automatically)
 │   ├── setup-apple-id.sh
-│   ├── setup-application-preparation.sh
 │   ├── setup-bash-configuration.sh
 │   ├── setup-command-line-tools.sh
 │   ├── setup-dock-configuration.sh
@@ -136,10 +116,9 @@ macmini-setup/
 │   ├── setup-touchid-sudo.sh
 │   └── setup-wifi-network.sh
 └── ssh_keys/
-    ├── authorized_keys           # Admin SSH access
+    ├── authorized_keys           # SSH access
     ├── id_ed25519
-    ├── id_ed25519.pub
-    └── operator_authorized_keys  # Operator SSH access
+    └── id_ed25519.pub
 ```
 
 ## Security Features
@@ -150,7 +129,7 @@ macmini-setup/
 
 **One-time URLs**: Apple ID password uses 1Password's view-once sharing feature.
 
-**SSH Key Isolation**: Separate key files for admin and operator accounts.
+**SSH Key Isolation**: Separate key files for secure access.
 
 **Conditional Components**: WiFi configuration is only included when using script-based WiFi configuration (not Migration Assistant).
 
@@ -181,8 +160,8 @@ Example summary output:
 Preparation completed, but 2 warnings occurred:
 
 WARNINGS:
-  ⚠️ Copying SSH Keys: SSH private key not found at ~/.ssh/id_ed25519
-  ⚠️ WiFi Network Configuration: Could not detect current WiFi network
+  Copying SSH Keys: SSH private key not found at ~/.ssh/id_ed25519
+  WiFi Network Configuration: Could not detect current WiFi network
 
 Review issues above - some warnings may be expected if optional components are missing.
 ```
@@ -228,7 +207,7 @@ Check that item titles exactly match your `config.conf` settings:
 op item list --vault "personal"
 
 # Check specific item
-op item get "operator" --vault "personal"
+op item get "TimeMachine NAS" --vault "personal"
 ```
 
 ### TouchID Sudo Configuration

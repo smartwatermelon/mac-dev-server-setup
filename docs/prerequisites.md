@@ -1,6 +1,6 @@
-# Prerequisites - Mac Mini Server Setup
+# Prerequisites - Mac Mini Dev Server Setup
 
-Critical requirements for successful Mac Mini server setup
+Critical requirements for successful Mac Mini dev server setup
 
 ## Development Machine Requirements
 
@@ -17,27 +17,17 @@ Critical requirements for successful Mac Mini server setup
 
 Required 1Password login items in your configured vault:
 
-1. **Operator Account** (item name configurable via `ONEPASSWORD_OPERATOR_ITEM`)
-   - Username: `operator` (or configured value)
-   - Password: Will be auto-generated if item doesn't exist
-
-2. **TimeMachine** (item name configurable via `ONEPASSWORD_TIMEMACHINE_ITEM`)
+1. **TimeMachine** (item name configurable via `ONEPASSWORD_TIMEMACHINE_ITEM`)
    - Username: NAS username for Time Machine backups
    - Password: NAS password
    - URL field: NAS hostname or SMB URL
 
-3. **Plex NAS** (item name configurable via `ONEPASSWORD_PLEX_NAS_ITEM`)
-   - Username: NAS username for media access
-   - Password: NAS password
-   - URL field: NAS hostname or SMB URL (optional)
-
-4. **Apple ID** (item name configurable via `ONEPASSWORD_APPLEID_ITEM`)
+2. **Apple ID** (item name configurable via `ONEPASSWORD_APPLEID_ITEM`)
    - Username: Apple ID email
    - Password: Apple ID password
 
-5. **OpenSubtitles** (item name configurable via `ONEPASSWORD_OPENSUBTITLES_ITEM`)
-   - Username: OpenSubtitles account
-   - Password: OpenSubtitles password
+3. **SSH Keys** (item name configurable via `SSH_KEY_ITEM`)
+   - SSH key material for deployment to the server
 
 ### Configuration File
 
@@ -101,13 +91,13 @@ op whoami
 op vault get "${ONEPASSWORD_VAULT}"
 
 # Check for required 1Password items
-op item list --vault "${ONEPASSWORD_VAULT}" | grep -E "operator|TimeMachine|Plex NAS|Apple|OpenSubtitles"
+op item list --vault "${ONEPASSWORD_VAULT}" | grep -E "TimeMachine|Apple|SSH"
 
 # Verify SSH keys
 ls -la ~/.ssh/id_ed25519*
 
 # Check configuration file
-test -f config/config.conf && echo "✅ Config file exists" || echo "❌ Create config/config.conf from template"
+test -f config/config.conf && echo "Config file exists" || echo "Create config/config.conf from template"
 ```
 
 ## Troubleshooting Common Issues
@@ -122,13 +112,12 @@ test -f config/config.conf && echo "✅ Config file exists" || echo "❌ Create 
 
 - Generate keys if missing: `ssh-keygen -t ed25519`
 - Ensure both public and private keys exist
-- Keys will be deployed to both admin and operator accounts
+- Keys will be deployed to the admin account on the server
 
 ### FileVault Problems
 
 - first-boot.sh will detect FileVault and offer to disable it
 - Can be disabled manually: `sudo fdesetup disable`
-- Required for automatic login functionality
 
 ### GUI Session Requirements
 
@@ -151,10 +140,3 @@ test -f config/config.conf && echo "✅ Config file exists" || echo "❌ Create 
 - Firewall configured with SSH allowlist
 - Password authentication disabled for SSH
 - TouchID sudo configured for local administration
-
-### Access Control
-
-- Operator account has limited sudo privileges
-- Administrator account retains full system access
-- Automatic login configured only for operator account
-- Hardware fingerprint prevents wrong-machine execution

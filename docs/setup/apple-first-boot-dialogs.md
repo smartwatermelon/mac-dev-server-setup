@@ -1,6 +1,6 @@
 # Apple First-Boot Dialog Guide
 
-This guide provides step-by-step instructions for navigating Apple's Setup Assistant dialogs during initial Mac Mini configuration and operator account first login.
+This guide provides step-by-step instructions for navigating Apple's Setup Assistant dialogs during initial Mac Mini configuration.
 
 ## Admin Account Setup (Initial macOS Installation)
 
@@ -20,7 +20,7 @@ When setting up the Mac Mini for the first time, you'll encounter these Apple di
 
 - **Action**: Choose transfer method
 - **Options**:
-  - **iPhone/iPad Transfer** ✅ Recommended if available (requires iOS device with backup)
+  - **iPhone/iPad Transfer** Recommended if available (requires iOS device with backup)
   - **Time Machine Backup** (if you have an existing backup)
   - **Don't transfer any information now** (manual setup)
 - **Note**: iPhone/iPad transfer can pre-configure WiFi, Apple ID, and other settings
@@ -74,9 +74,7 @@ When setting up the Mac Mini for the first time, you'll encounter these Apple di
 ##### 7.2.5 FileVault Disk Encryption
 
 - **Action**: Choose whether to enable FileVault
-- **⚠️ CRITICAL**: **Turn OFF FileVault!**
-- **Reason**: FileVault prevents automatic login for the operator account
-- **Note**: This is essential for proper server operation
+- **Recommendation**: Configure based on your security preferences
 
 ##### 7.2.6 Touch ID
 
@@ -109,81 +107,15 @@ When setting up the Mac Mini for the first time, you'll encounter these Apple di
 
 ---
 
-## Operator Account First Login
-
-When the operator account logs in for the first time, they'll encounter a simplified Setup Assistant:
-
-### 1. Accessibility
-
-- **Action**: Configure accessibility options
-- **Recommendation**: Configure as needed, or skip if not required
-
-### 2. Apple Account
-
-- **Action**: Sign in with Apple ID
-- **⚠️ RECOMMENDATION**: **Skip this step**
-- **Reason**: Server operations don't require operator Apple ID integration
-- **Note**: You can always add this later if needed
-
-### 3. Find My
-
-- **Action**: Enable Find My for the device
-- **Recommendation**: Configure based on your security preferences
-
-### 4. Analytics & Improvement
-
-- **Action**: Choose analytics sharing preferences
-- **Recommendation**: Configure based on privacy preferences
-
-### 5. Screen Time
-
-- **Action**: Set up Screen Time
-- **⚠️ RECOMMENDATION**: **Skip this step**
-- **Reason**: Not relevant for server operation
-
-### 6. Apple Intelligence
-
-- **Action**: Configure Apple AI features
-- **⚠️ RECOMMENDATION**: **Skip this step**
-- **Reason**: Not needed for server operation, may impact performance
-
-### 7. Touch ID Setup Assistant
-
-- **Action**: Set up Touch ID
-- **⚠️ RECOMMENDATION**: **Cancel/Skip this step**
-- **Reason**: Operator account uses automatic login, Touch ID not typically needed
-
-### 8. Choose Your Look
-
-- **Action**: Select appearance theme
-- **Recommendation**: Auto or user preference
-
-### 9. Continue
-
-- **Action**: Complete operator setup
-- **Result**: Proceed to desktop
-
-### 10. Desktop
-
-- **Result**: Operator account setup complete, automatic application launch will begin
-
----
-
 ## Important Notes
-
-### FileVault Warning
-
-**CRITICAL**: Ensure FileVault is disabled during admin account setup. FileVault encryption prevents the automatic login functionality required for proper server operation.
 
 ### Account Purpose
 
-- **Admin Account**: Used for system administration, setup, and maintenance
-- **Operator Account**: Used for day-to-day server operation and automatic application launch
+- **Admin Account**: Used for system administration, setup, maintenance, and day-to-day development work
 
 ### Setup Timing
 
 - Complete Apple dialogs **before** running `first-boot.sh`
-- Operator dialogs appear automatically on first operator login after reboot
 
 ### Migration Assistant Benefits
 
