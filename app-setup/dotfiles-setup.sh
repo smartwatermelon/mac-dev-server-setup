@@ -131,88 +131,80 @@ main() {
   fi
 
   # Clone or update dotfiles
-  if [[ -d "${DOTFILES_DIR}/.git" ]]; then
-    # Already a git repo — just pull
-    section "Updating Existing Dotfiles"
-    show_log "Dotfiles directory is a git repo, pulling latest changes..."
+  section "Cloning Dotfiles Repository"
 
-    local pull_exit=0
-    git -C "${DOTFILES_DIR}" pull >>"${LOG_FILE}" 2>&1 || pull_exit=$?
-    check_success "${pull_exit}" "Dotfiles pull" || true
-  else
-    section "Cloning Dotfiles Repository"
+  if [[ "${FORCE}" != true ]] && [[ ! -d "${DOTFILES_DIR}/.git" ]]; then
+    show_log ""
+    show_log "Will clone ${DOTFILES_REPO} to ${DOTFILES_DIR}"
+    show_log ""
 
-    if [[ "${FORCE}" != true ]]; then
-      show_log ""
-      show_log "Will clone ${DOTFILES_REPO} to ${DOTFILES_DIR}"
-      show_log ""
+    read -r -n 1 -p "Proceed with dotfiles clone? (Y/n): " response
+    echo
+    case "${response}" in
+      [nN])
+        show_log "Dotfiles clone cancelled by user"
+        exit 0
+        ;;
+      *)
+        show_log "Proceeding with clone..."
+        ;;
+    esac
+  fi
 
-      read -r -n 1 -p "Proceed with dotfiles clone? (Y/n): " response
-      echo
-      case "${response}" in
-        [nN])
-          show_log "Dotfiles clone cancelled by user"
-          exit 0
-          ;;
-        *)
-          show_log "Proceeding with clone..."
-          ;;
-      esac
+  if [[ -d "${DOTFILES_DIR}" ]]; then
+    # Directory exists — either a working repo, a half-initialized repo from
+    # a previous failed run, or a plain directory with app defaults.
+    # git init is a no-op on an already-initialized repo, so this path
+    # handles all three cases. Force-checkout overwrites conflicting files
+    # (dotfiles intentionally replace app defaults in ~/.config).
+    show_log "Initializing dotfiles repo in ${DOTFILES_DIR}..."
+
+    local init_exit=0
+    git -C "${DOTFILES_DIR}" init >>"${LOG_FILE}" 2>&1 || init_exit=$?
+    if [[ ${init_exit} -ne 0 ]]; then
+      check_success "${init_exit}" "Dotfiles git init"
+      exit 1
     fi
 
-    if [[ -d "${DOTFILES_DIR}" ]]; then
-      # Directory exists but isn't a git repo (e.g., apps already created configs
-      # in ~/.config). Initialize git in-place so tracked dotfiles overwrite
-      # app defaults while untracked files are left alone.
-      show_log "Initializing dotfiles repo in existing ${DOTFILES_DIR}..."
-
-      local init_exit=0
-      git -C "${DOTFILES_DIR}" init >>"${LOG_FILE}" 2>&1 || init_exit=$?
-      if [[ ${init_exit} -ne 0 ]]; then
-        check_success "${init_exit}" "Dotfiles git init"
-        exit 1
-      fi
-
-      # Idempotent remote setup
-      if git -C "${DOTFILES_DIR}" remote get-url origin >>"${LOG_FILE}" 2>&1; then
-        git -C "${DOTFILES_DIR}" remote set-url origin "${DOTFILES_REPO}" >>"${LOG_FILE}" 2>&1
-      else
-        git -C "${DOTFILES_DIR}" remote add origin "${DOTFILES_REPO}" >>"${LOG_FILE}" 2>&1
-      fi
-
-      local fetch_exit=0
-      git -C "${DOTFILES_DIR}" fetch origin >>"${LOG_FILE}" 2>&1 || fetch_exit=$?
-      if [[ ${fetch_exit} -ne 0 ]]; then
-        check_success "${fetch_exit}" "Dotfiles fetch"
-        show_log "Ensure SSH key is deployed and has access to the repository"
-        exit 1
-      fi
-
-      # Detect default branch from remote
-      local default_branch
-      default_branch="$(git -C "${DOTFILES_DIR}" remote show origin 2>>"${LOG_FILE}" | sed -n '/HEAD branch/s/.*: //p')"
-      default_branch="${default_branch:-main}"
-      log "Remote default branch: ${default_branch}"
-
-      # Create local branch tracking remote — force overwrites untracked files
-      # that conflict with the repo (e.g., app defaults already in ~/.config)
-      local checkout_exit=0
-      git -C "${DOTFILES_DIR}" checkout -f -B "${default_branch}" "origin/${default_branch}" >>"${LOG_FILE}" 2>&1 || checkout_exit=$?
-
-      if ! check_success "${checkout_exit}" "Dotfiles init-in-place"; then
-        show_log "Ensure SSH key is deployed and has access to the repository"
-        exit 1
-      fi
+    # Idempotent remote setup
+    if git -C "${DOTFILES_DIR}" remote get-url origin >>"${LOG_FILE}" 2>&1; then
+      git -C "${DOTFILES_DIR}" remote set-url origin "${DOTFILES_REPO}" >>"${LOG_FILE}" 2>&1
     else
-      # Fresh clone
-      show_log "Cloning dotfiles repository..."
-      local clone_exit=0
-      git clone "${DOTFILES_REPO}" "${DOTFILES_DIR}" >>"${LOG_FILE}" 2>&1 || clone_exit=$?
+      git -C "${DOTFILES_DIR}" remote add origin "${DOTFILES_REPO}" >>"${LOG_FILE}" 2>&1
+    fi
 
-      if ! check_success "${clone_exit}" "Dotfiles clone"; then
-        show_log "Ensure SSH key is deployed and has access to the repository"
-        exit 1
-      fi
+    local fetch_exit=0
+    git -C "${DOTFILES_DIR}" fetch origin >>"${LOG_FILE}" 2>&1 || fetch_exit=$?
+    if [[ ${fetch_exit} -ne 0 ]]; then
+      check_success "${fetch_exit}" "Dotfiles fetch"
+      show_log "Ensure SSH key is deployed and has access to the repository"
+      exit 1
+    fi
+
+    # Detect default branch from remote
+    local default_branch
+    default_branch="$(git -C "${DOTFILES_DIR}" remote show origin 2>>"${LOG_FILE}" | sed -n '/HEAD branch/s/.*: //p')"
+    default_branch="${default_branch:-main}"
+    log "Remote default branch: ${default_branch}"
+
+    # Create local branch tracking remote — force overwrites untracked files
+    # that conflict with the repo (e.g., app defaults already in ~/.config)
+    local checkout_exit=0
+    git -C "${DOTFILES_DIR}" checkout -f -B "${default_branch}" "origin/${default_branch}" >>"${LOG_FILE}" 2>&1 || checkout_exit=$?
+
+    if ! check_success "${checkout_exit}" "Dotfiles sync"; then
+      show_log "Ensure SSH key is deployed and has access to the repository"
+      exit 1
+    fi
+  else
+    # Fresh clone — directory doesn't exist at all
+    show_log "Cloning dotfiles repository..."
+    local clone_exit=0
+    git clone "${DOTFILES_REPO}" "${DOTFILES_DIR}" >>"${LOG_FILE}" 2>&1 || clone_exit=$?
+
+    if ! check_success "${clone_exit}" "Dotfiles clone"; then
+      show_log "Ensure SSH key is deployed and has access to the repository"
+      exit 1
     fi
   fi
 
