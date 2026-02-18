@@ -62,18 +62,28 @@ PROJECT_ROOT="${SCRIPT_DIR}" # Script is now at repo root
 CONFIG_DIR="${PROJECT_ROOT}/config"
 CONFIG_FILE="${CONFIG_DIR}/config.conf"
 
-if [[ -f "${CONFIG_FILE}" ]]; then
-  # shellcheck source=/dev/null
-  source "${CONFIG_FILE}"
-  echo "Loaded configuration from ${CONFIG_FILE}"
-else
-  echo "Error: Configuration file not found at ${CONFIG_FILE}"
-  echo ""
-  echo "Create it from the template:"
-  echo "  cp config/config.conf.template config/config.conf"
-  echo "  \$EDITOR config/config.conf"
-  exit 1
+CONFIG_TEMPLATE="${CONFIG_DIR}/config.conf.template"
+
+if [[ ! -f "${CONFIG_FILE}" ]]; then
+  if [[ -f "${CONFIG_TEMPLATE}" ]]; then
+    echo "No config.conf found — creating from template..."
+    cp "${CONFIG_TEMPLATE}" "${CONFIG_FILE}"
+    echo "Created ${CONFIG_FILE}"
+    echo ""
+    echo "Review the defaults and set SERVER_NAME before continuing."
+    echo ""
+    read -r -p "Press Enter to open in ${EDITOR:-vi}, or Ctrl-C to edit manually later... "
+    "${EDITOR:-vi}" "${CONFIG_FILE}"
+  else
+    echo "Error: No config.conf or config.conf.template found in ${CONFIG_DIR}"
+    exit 1
+  fi
 fi
+
+# shellcheck source=/dev/null
+source "${CONFIG_FILE}"
+echo "Loaded configuration from ${CONFIG_FILE}"
+echo "Validating configuration..."
 
 # Validate required config variables
 : "${SERVER_NAME:?SERVER_NAME must be set in config.conf}"
