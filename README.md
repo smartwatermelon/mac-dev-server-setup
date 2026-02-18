@@ -20,6 +20,7 @@ Automated setup for an Apple Silicon Mac Mini as a mobile development build serv
 1. **On dev Mac**: `./prep-airdrop.sh` (builds deployment package)
 2. **AirDrop** the generated folder to your Mac Mini
 3. **On Mac Mini desktop** (not SSH): `cd ~/Downloads/macmini-setup && ./first-boot.sh`
+4. **On Mac Mini**: `cd ~/app-setup && ./run-app-setup.sh` (installs dev tools)
 
 **Result**: Dev server at `your-server-name.local`, ready for builds.
 
@@ -33,7 +34,7 @@ Three phases, two machines.
 
 **Phase 2** (`first-boot.sh`, on the Mac Mini): Validates the hardware fingerprint, imports the keychain, runs 15+ setup modules (SSH, Homebrew, FileVault, Time Machine, etc). Has to be run from the local desktop, not SSH.
 
-**Phase 3** (`run-app-setup.sh`, on the Mac Mini): Discovers and runs all `*-setup.sh` scripts in dependency order. *(Dev tool scripts coming in Phase 3 of the project roadmap.)*
+**Phase 3** (`run-app-setup.sh`, on the Mac Mini): Discovers and runs all `*-setup.sh` scripts in dependency order -- Xcode, Node.js, Android SDK, and dotfiles.
 
 ### Configuration flow
 
@@ -68,9 +69,9 @@ first-boot.sh (Mac Mini)
 
 ## Current status
 
-This is **Phase 1** of the project roadmap. Media server components have been removed. The core infrastructure (provisioning, logging, error handling, setup modules) is retained and ready for dev tool scripts in future phases.
+All implementation phases are complete. The project is ready to deploy on a fresh Mac Mini.
 
-See [SPEC.md](SPEC.md) for the full 4-phase plan.
+See [SPEC.md](SPEC.md) for the original roadmap.
 
 ## Prerequisites
 
@@ -110,13 +111,26 @@ See [Prerequisites Guide](docs/prerequisites.md) for validation commands.
 
    > This needs the local desktop for System Settings dialogs and FileVault management. It will not work over SSH.
 
+4. **Run app-setup** on the Mac Mini (new Terminal window opens automatically after first-boot):
+
+   ```bash
+   cd ~/app-setup
+   ./run-app-setup.sh
+   ```
+
+   This installs Xcode (via App Store), configures Node.js globals, sets up the Android SDK, and clones your dotfiles. Scripts run in dependency order and can be re-run safely.
+
 ## File structure
 
 ```plaintext
 .
 ├── prep-airdrop.sh                # Entry point: builds deployment package
 ├── app-setup/                     # Application setup scripts
-│   └── run-app-setup.sh          # Orchestrator (runs scripts in dependency order)
+│   ├── run-app-setup.sh          # Orchestrator (runs scripts in dependency order)
+│   ├── xcode-setup.sh            # Xcode via mas, license, simulators
+│   ├── node-setup.sh             # npm global config, eas-cli
+│   ├── android-setup.sh          # SDK components, licenses, ANDROID_HOME
+│   └── dotfiles-setup.sh         # Clone repo, run install script
 ├── scripts/
 │   └── server/
 │       ├── first-boot.sh          # Main provisioning script (15+ modules)
