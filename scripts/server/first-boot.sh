@@ -597,6 +597,15 @@ if [[ "${FORCE}" != "true" ]]; then
 
   show_log "✅ Administrator password validated"
   export ADMINISTRATOR_PASSWORD
+
+  # Prime sudo and start keepalive so modules don't re-prompt
+  echo "${ADMINISTRATOR_PASSWORD}" | sudo -S -v 2>/dev/null
+  while true; do
+    sudo -n -v 2>/dev/null
+    sleep 55
+  done &
+  SUDO_KEEPALIVE_PID=$!
+  log "Started sudo keepalive (PID ${SUDO_KEEPALIVE_PID})"
 else
   log "🆗 Skipping password prompt (force mode or FDA re-run)"
 fi
@@ -874,6 +883,12 @@ show_log "Server setup has been completed successfully"
 # Clean up temporary sudo timeout configuration
 log "Removing temporary sudo timeout configuration"
 sudo rm -f /etc/sudoers.d/10_setup_timeout
+
+# Stop sudo keepalive
+if [[ -n "${SUDO_KEEPALIVE_PID:-}" ]]; then
+  kill "${SUDO_KEEPALIVE_PID}" 2>/dev/null || true
+  log "Stopped sudo keepalive (PID ${SUDO_KEEPALIVE_PID})"
+fi
 
 # Clean up administrator password from memory
 if [[ -n "${ADMINISTRATOR_PASSWORD:-}" ]]; then
