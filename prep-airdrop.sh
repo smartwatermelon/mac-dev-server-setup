@@ -67,14 +67,19 @@ if [[ -f "${CONFIG_FILE}" ]]; then
   source "${CONFIG_FILE}"
   echo "Loaded configuration from ${CONFIG_FILE}"
 else
-  echo "Warning: Configuration file not found at ${CONFIG_FILE}"
-  echo "Using default values - you may want to create config.conf"
-  # Set fallback defaults
-  SERVER_NAME="MACMINI"
-  ONEPASSWORD_VAULT="personal"
-  ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine"
-  ONEPASSWORD_APPLEID_ITEM="Apple"
+  echo "Error: Configuration file not found at ${CONFIG_FILE}"
+  echo ""
+  echo "Create it from the template:"
+  echo "  cp config/config.conf.template config/config.conf"
+  echo "  \$EDITOR config/config.conf"
+  exit 1
 fi
+
+# Validate required config variables
+: "${SERVER_NAME:?SERVER_NAME must be set in config.conf}"
+: "${ONEPASSWORD_VAULT:?ONEPASSWORD_VAULT must be set in config.conf}"
+: "${ONEPASSWORD_TIMEMACHINE_ITEM:?ONEPASSWORD_TIMEMACHINE_ITEM must be set in config.conf}"
+: "${ONEPASSWORD_APPLEID_ITEM:?ONEPASSWORD_APPLEID_ITEM must be set in config.conf}"
 
 # Handle command line arguments
 if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
@@ -644,11 +649,9 @@ if [[ -d "${SCRIPT_SOURCE_DIR}" ]]; then
   copy_with_manifest "${SCRIPT_SOURCE_DIR}/config/casks.txt" "config/casks.txt" "REQUIRED" || echo "Warning: casks.txt not found in source directory"
   copy_with_manifest "${SCRIPT_SOURCE_DIR}/config/logrotate.conf" "config/logrotate.conf" "OPTIONAL" || echo "Warning: logrotate.conf not found in source directory"
 
-  # Copy configuration file if it exists
-  if [[ -f "${CONFIG_FILE}" ]]; then
-    copy_with_manifest "${CONFIG_FILE}" "config/config.conf" "REQUIRED"
-    echo "Configuration file copied to setup package"
-  fi
+  # Copy configuration file (validated at startup)
+  copy_with_manifest "${CONFIG_FILE}" "config/config.conf" "REQUIRED"
+  echo "Configuration file copied to setup package"
 
   # Copy terminal profile files if specified in configuration
   if [[ -n "${TERMINAL_PROFILE_FILE:-}" ]]; then
