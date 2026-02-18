@@ -194,9 +194,10 @@ main() {
       default_branch="${default_branch:-main}"
       log "Remote default branch: ${default_branch}"
 
-      # Create local branch tracking remote — overwrites tracked files in place
+      # Create local branch tracking remote — force overwrites untracked files
+      # that conflict with the repo (e.g., app defaults already in ~/.config)
       local checkout_exit=0
-      git -C "${DOTFILES_DIR}" checkout -B "${default_branch}" "origin/${default_branch}" >>"${LOG_FILE}" 2>&1 || checkout_exit=$?
+      git -C "${DOTFILES_DIR}" checkout -f -B "${default_branch}" "origin/${default_branch}" >>"${LOG_FILE}" 2>&1 || checkout_exit=$?
 
       if ! check_success "${checkout_exit}" "Dotfiles init-in-place"; then
         show_log "Ensure SSH key is deployed and has access to the repository"
