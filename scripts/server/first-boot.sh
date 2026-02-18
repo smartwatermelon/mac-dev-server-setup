@@ -597,8 +597,53 @@ if [[ "${FORCE}" != "true" ]]; then
 
   show_log "✅ Administrator password validated"
   export ADMINISTRATOR_PASSWORD
+
+  # Prime sudo and start keepalive so modules don't re-prompt
+  echo "${ADMINISTRATOR_PASSWORD}" | sudo -S -v 2>/dev/null
+  while true; do
+    sudo -n -v 2>/dev/null
+    sleep 55
+  done &
+  SUDO_KEEPALIVE_PID=$!
+  # Ensure keepalive is killed on any exit (early FDA exit, errors, etc.)
+  trap 'kill "${SUDO_KEEPALIVE_PID:-}" 2>/dev/null || true' EXIT
+  log "Started sudo keepalive (PID ${SUDO_KEEPALIVE_PID})"
 else
   log "🆗 Skipping password prompt (force mode or FDA re-run)"
+fi
+
+# Check for Full Disk Access early — multiple modules need it (SSH, Time Machine)
+set_section "Checking Full Disk Access"
+if [[ "${RERUN_AFTER_FDA}" = true ]]; then
+  log "Skipping FDA check (re-run after FDA grant)"
+else
+  # Test FDA by reading a protected path; tmutil and systemsetup both need it
+  if ! sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" "SELECT 1 LIMIT 1" &>/dev/null; then
+    show_log "Terminal needs Full Disk Access for this setup."
+    show_log ""
+    show_log "1. We'll open System Settings to the Full Disk Access section"
+    show_log "2. We'll open Finder showing Terminal.app"
+    show_log "3. Drag Terminal from Finder into the FDA list and enable it"
+    show_log "4. Close this Terminal window, open a NEW one, and re-run the script"
+
+    touch "/tmp/${HOSTNAME_LOWER}_fda_requested"
+
+    osascript <<'APPLESCRIPT'
+tell application "Finder"
+  activate
+  open folder "Applications:Utilities:" of startup disk
+  select file "Terminal.app" of folder "Utilities" of folder "Applications" of startup disk
+end tell
+APPLESCRIPT
+
+    open "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+
+    show_log ""
+    show_log "After granting Full Disk Access, close this window and run the script again."
+    exit 0
+  else
+    log "Full Disk Access confirmed"
+  fi
 fi
 
 #
@@ -874,6 +919,12 @@ show_log "Server setup has been completed successfully"
 # Clean up temporary sudo timeout configuration
 log "Removing temporary sudo timeout configuration"
 sudo rm -f /etc/sudoers.d/10_setup_timeout
+
+# Stop sudo keepalive
+if [[ -n "${SUDO_KEEPALIVE_PID:-}" ]]; then
+  kill "${SUDO_KEEPALIVE_PID}" 2>/dev/null || true
+  log "Stopped sudo keepalive (PID ${SUDO_KEEPALIVE_PID})"
+fi
 
 # Clean up administrator password from memory
 if [[ -n "${ADMINISTRATOR_PASSWORD:-}" ]]; then
