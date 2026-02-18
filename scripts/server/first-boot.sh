@@ -610,6 +610,40 @@ else
   log "🆗 Skipping password prompt (force mode or FDA re-run)"
 fi
 
+# Check for Full Disk Access early — multiple modules need it (SSH, Time Machine)
+set_section "Checking Full Disk Access"
+if [[ "${RERUN_AFTER_FDA}" = true ]]; then
+  log "Skipping FDA check (re-run after FDA grant)"
+else
+  # Test FDA by reading a protected path; tmutil and systemsetup both need it
+  if ! sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" "SELECT 1 LIMIT 1" &>/dev/null; then
+    show_log "Terminal needs Full Disk Access for this setup."
+    show_log ""
+    show_log "1. We'll open System Settings to the Full Disk Access section"
+    show_log "2. We'll open Finder showing Terminal.app"
+    show_log "3. Drag Terminal from Finder into the FDA list and enable it"
+    show_log "4. Close this Terminal window, open a NEW one, and re-run the script"
+
+    touch "/tmp/${HOSTNAME_LOWER}_fda_requested"
+
+    osascript <<'APPLESCRIPT'
+tell application "Finder"
+  activate
+  open folder "Applications:Utilities:" of startup disk
+  select file "Terminal.app" of folder "Utilities" of folder "Applications" of startup disk
+end tell
+APPLESCRIPT
+
+    open "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+
+    show_log ""
+    show_log "After granting Full Disk Access, close this window and run the script again."
+    exit 0
+  else
+    log "Full Disk Access confirmed"
+  fi
+fi
+
 #
 # SYSTEM CONFIGURATION
 #
