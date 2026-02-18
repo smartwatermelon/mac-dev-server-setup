@@ -605,6 +605,8 @@ if [[ "${FORCE}" != "true" ]]; then
     sleep 55
   done &
   SUDO_KEEPALIVE_PID=$!
+  # Ensure keepalive is killed on any exit (early FDA exit, errors, etc.)
+  trap 'kill "${SUDO_KEEPALIVE_PID:-}" 2>/dev/null || true' EXIT
   log "Started sudo keepalive (PID ${SUDO_KEEPALIVE_PID})"
 else
   log "🆗 Skipping password prompt (force mode or FDA re-run)"
