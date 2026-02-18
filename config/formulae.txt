@@ -39,9 +39,6 @@ node
 yarn
 pnpm
 
-# Java (for Android/Gradle)
-temurin
-
 # Python (for various tooling)
 python@3.12
 pipx
