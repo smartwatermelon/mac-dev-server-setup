@@ -207,8 +207,8 @@ ENVEOF
   local license_exit=0
   yes | "${sdkmanager}" --licenses &>/dev/null || license_exit=$?
 
-  # sdkmanager --licenses can exit non-zero even when all licenses are accepted
-  if [[ ${license_exit} -ne 0 ]]; then
+  # Exit 141 = SIGPIPE from yes; other non-zero exits may also be non-fatal
+  if [[ ${license_exit} -ne 0 ]] && [[ ${license_exit} -ne 141 ]]; then
     log "sdkmanager --licenses exited with ${license_exit} (may be non-fatal)"
   fi
   show_log "OK: SDK license acceptance"
@@ -257,6 +257,10 @@ ENVEOF
     show_log "Installing: ${pkg}..."
     install_exit=0
     yes | "${sdkmanager}" "${pkg}" >>"${LOG_FILE}" 2>&1 || install_exit=$?
+    # Exit 141 = SIGPIPE from yes when sdkmanager closes stdin — not an error
+    if [[ ${install_exit} -eq 141 ]]; then
+      install_exit=0
+    fi
     check_success "${install_exit}" "SDK component: ${pkg}" || true
   done
 
