@@ -1,6 +1,7 @@
 # Development
 android-studio
 android-commandlinetools
+temurin
 
 # Terminal
 iterm2
