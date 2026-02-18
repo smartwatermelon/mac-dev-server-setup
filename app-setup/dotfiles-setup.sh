@@ -18,6 +18,10 @@
 
 set -euo pipefail
 
+# Clear any exported shell wrapper functions (e.g., dotfiles' git wrapper)
+# that would interfere with set -u via RETURN traps referencing local vars
+unset -f git gh 2>/dev/null || true
+
 # Parse command line arguments
 FORCE=false
 
