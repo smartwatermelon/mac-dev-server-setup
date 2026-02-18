@@ -3,7 +3,6 @@
 # run-app-setup.sh - Application setup orchestrator for Mac Mini dev server
 #
 # This script runs all app-setup scripts in dependency order.
-# Phase 3 will add: xcode-setup.sh, android-setup.sh, node-setup.sh, dotfiles-setup.sh
 #
 # Unknown setup scripts are executed after the known ordered scripts.
 #
@@ -40,7 +39,11 @@ if [[ "${PWD}" != "${SCRIPT_DIR}" ]] || [[ "$(basename "${SCRIPT_DIR}")" != "app
 fi
 
 # Load server configuration
-CONFIG_FILE="${SCRIPT_DIR}/config/config.conf"
+CONFIG_FILE="${SCRIPT_DIR}/../config/config.conf"
+if [[ ! -f "${CONFIG_FILE}" ]]; then
+  # Fallback for deployed environment where config is copied into app-setup/
+  CONFIG_FILE="${SCRIPT_DIR}/config/config.conf"
+fi
 
 if [[ -f "${CONFIG_FILE}" ]]; then
   # shellcheck source=/dev/null
@@ -178,8 +181,12 @@ show_collected_issues() {
 }
 
 # Define optimal execution order with descriptions
-# Phase 3 will add: xcode-setup.sh, android-setup.sh, node-setup.sh, dotfiles-setup.sh
-declare -A SCRIPT_ORDER=()
+declare -A SCRIPT_ORDER=(
+  ["xcode-setup.sh"]="1:Xcode installation and configuration"
+  ["node-setup.sh"]="2:Node.js global package configuration"
+  ["android-setup.sh"]="3:Android SDK configuration"
+  ["dotfiles-setup.sh"]="4:Dotfiles clone and installation"
+)
 
 # Function to get all setup scripts
 get_setup_scripts() {
