@@ -105,7 +105,8 @@ check_success() {
 
 # Dotfiles clone target — repo lives at ~/Developer/dotfiles (or configured path).
 # The repo's install.sh creates symlinks from ~/.config/<tool> -> repo/<tool>.
-readonly DOTFILES_DIR="${DOTFILES_DIR_OVERRIDE:-${HOME}/Developer/dotfiles}"
+# Override via DOTFILES_DIR in config.conf if needed.
+readonly DOTFILES_DIR="${DOTFILES_DIR:-${HOME}/Developer/dotfiles}"
 
 # Legacy clone location — older setup cloned directly to ~/.config
 readonly LEGACY_DOTFILES_DIR="${HOME}/.config"
@@ -163,17 +164,29 @@ main() {
     show_log "Migrating dotfiles from legacy location ${LEGACY_DOTFILES_DIR} to ${DOTFILES_DIR}..."
     mkdir -p "$(dirname "${DOTFILES_DIR}")"
 
-    # Move the repo — non-git files in ~/.config stay behind (app defaults)
+    # Clone from legacy location — non-git files in ~/.config stay behind
     local temp_dir
     temp_dir="$(mktemp -d)"
-    git clone "${LEGACY_DOTFILES_DIR}" "${temp_dir}/dotfiles" >>"${LOG_FILE}" 2>&1
+    local clone_exit=0
+    git clone "${LEGACY_DOTFILES_DIR}" "${temp_dir}/dotfiles" >>"${LOG_FILE}" 2>&1 || clone_exit=$?
+    if [[ ${clone_exit} -ne 0 ]]; then
+      rm -rf "${temp_dir}"
+      collect_error "Failed to clone from legacy dotfiles location"
+      exit 1
+    fi
+
     mv "${temp_dir}/dotfiles" "${DOTFILES_DIR}"
     rm -rf "${temp_dir}"
 
-    # Remove .git from legacy location so it's no longer treated as a repo
-    rm -rf "${LEGACY_DOTFILES_DIR}/.git"
-    show_log "OK: Migrated dotfiles repo to ${DOTFILES_DIR}"
-    log "Legacy .git removed from ${LEGACY_DOTFILES_DIR}"
+    # Only remove legacy .git after confirming new location has a working repo
+    if [[ -d "${DOTFILES_DIR}/.git" ]]; then
+      rm -rf "${LEGACY_DOTFILES_DIR}/.git"
+      show_log "OK: Migrated dotfiles repo to ${DOTFILES_DIR}"
+      log "Legacy .git removed from ${LEGACY_DOTFILES_DIR}"
+    else
+      collect_error "Migration failed — new dotfiles directory missing .git"
+      exit 1
+    fi
   fi
 
   if [[ -d "${DOTFILES_DIR}/.git" ]]; then

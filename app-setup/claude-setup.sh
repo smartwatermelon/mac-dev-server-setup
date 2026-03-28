@@ -189,9 +189,12 @@ main() {
       show_log "Cloning claude-wrapper..."
       local clone_exit=0
 
-      # Remove stale directory if exists without .git
+      # Move aside stale directory if exists without .git
       if [[ -d "${wrapper_dir}" ]]; then
-        rm -rf "${wrapper_dir}"
+        local backup
+        backup="${wrapper_dir}.bak.$(date +%Y%m%d%H%M%S)"
+        mv "${wrapper_dir}" "${backup}"
+        show_log "Moved stale ${wrapper_dir} to ${backup}"
       fi
 
       git clone "${wrapper_repo}" "${wrapper_dir}" >>"${LOG_FILE}" 2>&1 || clone_exit=$?
