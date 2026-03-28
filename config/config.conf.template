@@ -8,7 +8,7 @@ SERVER_NAME="macmini"
 # 1Password configuration
 ONEPASSWORD_VAULT="personal"
 ONEPASSWORD_APPLEID_ITEM="Apple"
-ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine NAS"
+ONEPASSWORD_TIMEMACHINE_ITEM="Synology NAS - TimeMachine"
 SSH_KEY_ITEM="SSH Keys"
 
 # Monitoring
@@ -19,6 +19,13 @@ DOTFILES_REPO="git@github.com:smartwatermelon/dotfiles.git"
 ANDROID_SDK_VERSION="34"
 NODE_VERSION="lts"
 XCODE_VERSION=""  # Empty = latest from App Store
+
+# External storage (optional — leave empty to skip)
+# Mount point of external drive for workspaces, simulators, and caches
+EXTERNAL_STORAGE_VOLUME=""
+
+# Claude Code (optional — leave empty to skip wrapper)
+CLAUDE_WRAPPER_REPO=""
 
 # Terminal configuration (optional)
 TERMINAL_PROFILE_FILE=""

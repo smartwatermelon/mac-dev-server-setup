@@ -40,8 +40,15 @@ yarn
 pnpm
 
 # Python (for various tooling)
-python@3.12
+python@3.13
 pipx
+pre-commit
+
+# Search and navigation
+fzf
+
+# Task runner
+task
 
 # Network tools (retained)
 openssh
