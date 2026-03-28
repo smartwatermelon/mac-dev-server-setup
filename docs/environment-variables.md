@@ -29,7 +29,7 @@ HOSTNAME_OVERRIDE=""
 ONEPASSWORD_VAULT="personal"
 
 # 1Password item names (customizable)
-ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine NAS"
+ONEPASSWORD_TIMEMACHINE_ITEM="Synology NAS - TimeMachine"
 ONEPASSWORD_APPLEID_ITEM="Apple"
 SSH_KEY_ITEM="SSH Keys"
 ```

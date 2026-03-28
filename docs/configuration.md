@@ -15,7 +15,7 @@ SERVER_NAME="macmini"
 # 1Password configuration
 ONEPASSWORD_VAULT="personal"
 ONEPASSWORD_APPLEID_ITEM="Apple"
-ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine NAS"
+ONEPASSWORD_TIMEMACHINE_ITEM="Synology NAS - TimeMachine"
 SSH_KEY_ITEM="SSH Keys"
 
 # Development configuration
@@ -53,7 +53,7 @@ The system uses 1Password for initial credential retrieval during setup preparat
 
 **ONEPASSWORD_TIMEMACHINE_ITEM**: Login item for Time Machine backup credentials
 
-- **Default**: "TimeMachine NAS"
+- **Default**: "Synology NAS - TimeMachine"
 - **Requirements**: Login item with username, password, and URL field
 
 **ONEPASSWORD_APPLEID_ITEM**: Login item for Apple ID credentials

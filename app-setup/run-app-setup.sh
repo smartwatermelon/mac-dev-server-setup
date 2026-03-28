@@ -182,10 +182,12 @@ show_collected_issues() {
 
 # Define optimal execution order with descriptions
 declare -A SCRIPT_ORDER=(
-  ["xcode-setup.sh"]="1:Xcode installation and configuration"
-  ["node-setup.sh"]="2:Node.js global package configuration"
-  ["android-setup.sh"]="3:Android SDK configuration"
-  ["dotfiles-setup.sh"]="4:Dotfiles clone and installation"
+  ["storage-setup.sh"]="1:External storage configuration for development"
+  ["xcode-setup.sh"]="2:Xcode installation and configuration"
+  ["node-setup.sh"]="3:Node.js global package configuration"
+  ["android-setup.sh"]="4:Android SDK configuration"
+  ["dotfiles-setup.sh"]="5:Dotfiles clone and installation"
+  ["claude-setup.sh"]="6:Claude Code CLI and wrapper installation"
 )
 
 # Function to get all setup scripts
