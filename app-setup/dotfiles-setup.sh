@@ -103,9 +103,12 @@ check_success() {
   fi
 }
 
-# Dotfiles clone target — the repo IS the XDG config directory.
-# On a fresh Mac Mini, dotfiles intentionally overwrite any app defaults.
-readonly DOTFILES_DIR="${HOME}/.config"
+# Dotfiles clone target — repo lives at ~/Developer/dotfiles (or configured path).
+# The repo's install.sh creates symlinks from ~/.config/<tool> -> repo/<tool>.
+readonly DOTFILES_DIR="${DOTFILES_DIR_OVERRIDE:-${HOME}/Developer/dotfiles}"
+
+# Legacy clone location — older setup cloned directly to ~/.config
+readonly LEGACY_DOTFILES_DIR="${HOME}/.config"
 
 # Known install script names to search for
 readonly -a INSTALL_SCRIPTS=(
@@ -155,20 +158,27 @@ main() {
     esac
   fi
 
-  if [[ -d "${DOTFILES_DIR}" ]]; then
-    # Directory exists — either a working repo, a half-initialized repo from
-    # a previous failed run, or a plain directory with app defaults.
-    # git init is a no-op on an already-initialized repo, so this path
-    # handles all three cases. Force-checkout overwrites conflicting files
-    # (dotfiles intentionally replace app defaults in ~/.config).
-    show_log "Initializing dotfiles repo in ${DOTFILES_DIR}..."
+  # Migrate from legacy location (~/.config as the repo) to new layout
+  if [[ -d "${LEGACY_DOTFILES_DIR}/.git" ]] && [[ ! -d "${DOTFILES_DIR}/.git" ]]; then
+    show_log "Migrating dotfiles from legacy location ${LEGACY_DOTFILES_DIR} to ${DOTFILES_DIR}..."
+    mkdir -p "$(dirname "${DOTFILES_DIR}")"
 
-    local init_exit=0
-    git -C "${DOTFILES_DIR}" init >>"${LOG_FILE}" 2>&1 || init_exit=$?
-    if [[ ${init_exit} -ne 0 ]]; then
-      check_success "${init_exit}" "Dotfiles git init"
-      exit 1
-    fi
+    # Move the repo — non-git files in ~/.config stay behind (app defaults)
+    local temp_dir
+    temp_dir="$(mktemp -d)"
+    git clone "${LEGACY_DOTFILES_DIR}" "${temp_dir}/dotfiles" >>"${LOG_FILE}" 2>&1
+    mv "${temp_dir}/dotfiles" "${DOTFILES_DIR}"
+    rm -rf "${temp_dir}"
+
+    # Remove .git from legacy location so it's no longer treated as a repo
+    rm -rf "${LEGACY_DOTFILES_DIR}/.git"
+    show_log "OK: Migrated dotfiles repo to ${DOTFILES_DIR}"
+    log "Legacy .git removed from ${LEGACY_DOTFILES_DIR}"
+  fi
+
+  if [[ -d "${DOTFILES_DIR}/.git" ]]; then
+    # Repo already exists at new location — update it
+    show_log "Updating existing dotfiles repo in ${DOTFILES_DIR}..."
 
     # Idempotent remote setup
     if git -C "${DOTFILES_DIR}" remote get-url origin >>"${LOG_FILE}" 2>&1; then
@@ -191,8 +201,39 @@ main() {
     default_branch="${default_branch:-main}"
     log "Remote default branch: ${default_branch}"
 
-    # Create local branch tracking remote — force overwrites untracked files
-    # that conflict with the repo (e.g., app defaults already in ~/.config)
+    # Fast-forward to latest
+    local checkout_exit=0
+    git -C "${DOTFILES_DIR}" checkout -f -B "${default_branch}" "origin/${default_branch}" >>"${LOG_FILE}" 2>&1 || checkout_exit=$?
+
+    if ! check_success "${checkout_exit}" "Dotfiles sync"; then
+      show_log "Ensure SSH key is deployed and has access to the repository"
+      exit 1
+    fi
+  elif [[ -d "${DOTFILES_DIR}" ]]; then
+    # Directory exists but is not a git repo — init and set up
+    show_log "Initializing dotfiles repo in ${DOTFILES_DIR}..."
+
+    local init_exit=0
+    git -C "${DOTFILES_DIR}" init >>"${LOG_FILE}" 2>&1 || init_exit=$?
+    if [[ ${init_exit} -ne 0 ]]; then
+      check_success "${init_exit}" "Dotfiles git init"
+      exit 1
+    fi
+
+    git -C "${DOTFILES_DIR}" remote add origin "${DOTFILES_REPO}" >>"${LOG_FILE}" 2>&1
+
+    local fetch_exit=0
+    git -C "${DOTFILES_DIR}" fetch origin >>"${LOG_FILE}" 2>&1 || fetch_exit=$?
+    if [[ ${fetch_exit} -ne 0 ]]; then
+      check_success "${fetch_exit}" "Dotfiles fetch"
+      show_log "Ensure SSH key is deployed and has access to the repository"
+      exit 1
+    fi
+
+    local default_branch
+    default_branch="$(git -C "${DOTFILES_DIR}" remote show origin 2>>"${LOG_FILE}" | sed -n '/HEAD branch/s/.*: //p')"
+    default_branch="${default_branch:-main}"
+
     local checkout_exit=0
     git -C "${DOTFILES_DIR}" checkout -f -B "${default_branch}" "origin/${default_branch}" >>"${LOG_FILE}" 2>&1 || checkout_exit=$?
 
@@ -242,11 +283,8 @@ main() {
     # Make executable if not already
     chmod +x "${found_install_script}"
 
-    # Build command
+    # Build command (install.sh is idempotent, no --force needed)
     local -a install_cmd=("${found_install_script}")
-    if [[ "${FORCE}" == true ]]; then
-      install_cmd+=("--force")
-    fi
 
     show_log "Running: ${install_cmd[*]}"
     local install_exit=0

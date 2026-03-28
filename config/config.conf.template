@@ -20,6 +20,13 @@ ANDROID_SDK_VERSION="34"
 NODE_VERSION="lts"
 XCODE_VERSION=""  # Empty = latest from App Store
 
+# External storage (optional — leave empty to skip)
+# Mount point of external drive for workspaces, simulators, and caches
+EXTERNAL_STORAGE_VOLUME=""
+
+# Claude Code (optional — leave empty to skip wrapper)
+CLAUDE_WRAPPER_REPO=""
+
 # Terminal configuration (optional)
 TERMINAL_PROFILE_FILE=""
 USE_ITERM2="false"
