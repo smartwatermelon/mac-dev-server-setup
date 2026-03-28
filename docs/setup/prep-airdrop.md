@@ -37,7 +37,7 @@ Create these Login items in your 1Password vault before running the prep script:
 - **Apple ID**: Your Apple ID for system setup
 - **SSH Keys**: SSH key material for deployment
 
-Item titles should match your `config.conf` settings (defaults: "TimeMachine NAS", "Apple", "SSH Keys").
+Item titles should match your `config.conf` settings (defaults: "Synology NAS - TimeMachine", "Apple", "SSH Keys").
 
 ## Running AirDrop Prep
 
@@ -207,7 +207,7 @@ Check that item titles exactly match your `config.conf` settings:
 op item list --vault "personal"
 
 # Check specific item
-op item get "TimeMachine NAS" --vault "personal"
+op item get "Synology NAS - TimeMachine" --vault "personal"
 ```
 
 ### TouchID Sudo Configuration

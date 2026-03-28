@@ -8,7 +8,7 @@ SERVER_NAME="macmini"
 # 1Password configuration
 ONEPASSWORD_VAULT="personal"
 ONEPASSWORD_APPLEID_ITEM="Apple"
-ONEPASSWORD_TIMEMACHINE_ITEM="TimeMachine NAS"
+ONEPASSWORD_TIMEMACHINE_ITEM="Synology NAS - TimeMachine"
 SSH_KEY_ITEM="SSH Keys"
 
 # Monitoring
