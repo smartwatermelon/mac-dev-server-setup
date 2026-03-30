@@ -24,8 +24,10 @@ XCODE_VERSION=""  # Empty = latest from App Store
 # Mount point of external drive for workspaces, simulators, and caches
 EXTERNAL_STORAGE_VOLUME=""
 
-# Claude Code (optional — leave empty to skip wrapper)
+# Claude Code (optional — leave empty to skip)
 CLAUDE_WRAPPER_REPO=""
+CLAUDE_CONFIG_REPO=""
+SCRIPTS_REPO=""
 
 # Terminal configuration (optional)
 TERMINAL_PROFILE_FILE=""
