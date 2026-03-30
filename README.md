@@ -22,7 +22,7 @@ Automated setup for an Apple Silicon Mac Mini as a mobile development build serv
 3. **On Mac Mini desktop** (not SSH): `cd ~/Downloads/macmini-setup && ./first-boot.sh`
 4. **On Mac Mini**: `cd ~/app-setup && ./run-app-setup.sh` (installs dev tools)
 
-**Result**: Dev server at `your-server-name.local`, ready for builds.
+**Result**: Dev server at `your-server-name.local`, ready for builds. Run `claude auth login` post-setup to enable cloud-synced MCPs (Sentry, Gmail, Calendar).
 
 More detail in [Prerequisites](docs/prerequisites.md) and [Environment Variables](docs/environment-variables.md).
 

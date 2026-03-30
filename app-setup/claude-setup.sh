@@ -265,6 +265,129 @@ main() {
     fi
   fi
 
+  # Install MCP servers (global, user-scoped)
+  CURRENT_SECTION="MCP Servers"
+  section "MCP Server Configuration"
+
+  if command -v claude &>/dev/null || [[ -x "${HOME}/.local/bin/claude" ]]; then
+    local claude_cmd="claude"
+    if ! command -v claude &>/dev/null; then
+      claude_cmd="${HOME}/.local/bin/claude"
+    fi
+
+    # Install headroom (context compression MCP)
+    show_log "Installing headroom (context compression)..."
+    if command -v pipx &>/dev/null || [[ -x "/opt/homebrew/bin/pipx" ]]; then
+      local pipx_cmd="pipx"
+      command -v pipx &>/dev/null || pipx_cmd="/opt/homebrew/bin/pipx"
+
+      local pipx_exit=0
+      "${pipx_cmd}" install headroom-ai >>"${LOG_FILE}" 2>&1 || pipx_exit=$?
+      if [[ ${pipx_exit} -eq 0 ]]; then
+        # headroom needs the mcp SDK to function as a Claude Code MCP server
+        local inject_exit=0
+        "${pipx_cmd}" inject headroom-ai mcp >>"${LOG_FILE}" 2>&1 || inject_exit=$?
+        if [[ ${inject_exit} -ne 0 ]]; then
+          collect_error "Failed to inject mcp SDK into headroom-ai (required for MCP server)"
+        fi
+        # proxy dependencies (fastapi, uvicorn, httpx with h2)
+        "${pipx_cmd}" inject headroom-ai fastapi uvicorn >>"${LOG_FILE}" 2>&1 || true
+        "${pipx_cmd}" inject headroom-ai "httpx[http2]" --force >>"${LOG_FILE}" 2>&1 || true
+        show_log "OK: headroom-ai installed via pipx"
+
+        # Resolve absolute path for MCP config (pipx symlink may not be on PATH)
+        local headroom_bin
+        headroom_bin="$(command -v headroom 2>/dev/null || echo "${HOME}/.local/bin/headroom")"
+        if [[ ! -x "${headroom_bin}" ]]; then
+          collect_error "headroom binary not found or not executable at ${headroom_bin}"
+        fi
+
+        # Add headroom as Claude Code MCP server
+        local add_exit=0
+        "${claude_cmd}" mcp add headroom -s user -- "${headroom_bin}" mcp serve >>"${LOG_FILE}" 2>&1 || add_exit=$?
+        check_success "${add_exit}" "Add headroom MCP (global)" || true
+
+        # Install headroom proxy LaunchAgent (provides ANTHROPIC_BASE_URL proxy)
+        local proxy_port=8787
+        if lsof -i ":${proxy_port}" -sTCP:LISTEN &>/dev/null; then
+          show_log "WARNING: port ${proxy_port} already in use — skipping headroom proxy LaunchAgent"
+        else
+          local plist_name="com.headroom.proxy.plist"
+          local plist_dest="${HOME}/Library/LaunchAgents/${plist_name}"
+          local gui_domain
+          gui_domain="gui/$(id -u)"
+          mkdir -p "${HOME}/Library/Logs/headroom"
+          cat >"${plist_dest}" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.headroom.proxy</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${headroom_bin}</string>
+        <string>proxy</string>
+        <string>--host</string>
+        <string>127.0.0.1</string>
+        <string>--port</string>
+        <string>${proxy_port}</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HEADROOM_PROXY_PORT</key>
+        <string>${proxy_port}</string>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>${HOME}</string>
+    <key>StandardOutPath</key>
+    <string>${HOME}/Library/Logs/headroom/proxy.log</string>
+    <key>StandardErrorPath</key>
+    <string>${HOME}/Library/Logs/headroom/proxy-error.log</string>
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Adaptive</string>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>
+PLIST
+          launchctl bootout "${gui_domain}/com.headroom.proxy" 2>/dev/null || true
+          launchctl bootstrap "${gui_domain}" "${plist_dest}" 2>>"${LOG_FILE}"
+          show_log "OK: headroom proxy LaunchAgent installed and loaded (port ${proxy_port})"
+        fi
+      else
+        collect_error "headroom-ai installation failed (pipx exit ${pipx_exit})"
+      fi
+    else
+      collect_error "pipx not found — cannot install headroom-ai"
+    fi
+
+    # Add Context7 MCP (documentation lookup)
+    local context7_key="${CONTEXT7_API_KEY:-}"
+    if [[ -n "${context7_key}" ]]; then
+      show_log "Adding Context7 MCP..."
+      local ctx_exit=0
+      "${claude_cmd}" mcp add context7 --transport http -s user \
+        "https://mcp.context7.com/mcp" \
+        --header "CONTEXT7_API_KEY: ${context7_key}" >>"${LOG_FILE}" 2>&1 || ctx_exit=$?
+      check_success "${ctx_exit}" "Add Context7 MCP (global)" || true
+    else
+      show_log "CONTEXT7_API_KEY not configured — skipping Context7 MCP"
+    fi
+
+    # Note: Cloud-synced MCPs (Sentry, Gmail, Google Calendar, Netlify, etc.)
+    # are tied to the Claude account and appear automatically after `claude auth login`.
+    # Project-specific MCPs (RevenueCat, Brevo, etc.) are configured per-repo
+    # in each project's .mcp.json file.
+    show_log "Note: Run 'claude auth login' to enable cloud-synced MCPs (Sentry, Gmail, Calendar, etc.)"
+  else
+    show_log "Claude Code not installed — skipping MCP setup"
+  fi
+
   # Clone user scripts repository
   CURRENT_SECTION="Scripts Repo"
   section "User Scripts Repository"
