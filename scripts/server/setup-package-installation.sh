@@ -331,6 +331,15 @@ if [[ "${SKIP_PACKAGES}" = false ]]; then
       install_formula "${formula}" "${current}" "${formulae_count}"
       ((current += 1))
     done
+
+    # Post-install configuration for formulae that require initial setup
+    # task (Taskwarrior): its bash-completion script runs `task show` at
+    # shell startup, which fails with "Cannot proceed without rc file."
+    # unless ~/.taskrc exists.  An empty file is sufficient.
+    if "${HOMEBREW_PREFIX}/bin/brew" list task &>/dev/null && [[ ! -f "${HOME}/.taskrc" ]]; then
+      touch "${HOME}/.taskrc"
+      log "Created ~/.taskrc (required by task bash-completion)"
+    fi
   else
     log "Formulae list not found, skipping formula installations"
   fi

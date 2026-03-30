@@ -47,7 +47,7 @@ pre-commit
 # Search and navigation
 fzf
 
-# Task runner
+# Task runner (post-install: requires ~/.taskrc — see setup-package-installation.sh)
 task
 
 # Network tools (retained)
