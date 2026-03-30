@@ -7,6 +7,7 @@ temurin
 iterm2
 
 # Security
+1password
 1password-cli
 
 # System utilities (retained from original)
