@@ -265,6 +265,29 @@ main() {
     fi
   fi
 
+  # Clone user scripts repository
+  CURRENT_SECTION="Scripts Repo"
+  section "User Scripts Repository"
+
+  local scripts_repo="${SCRIPTS_REPO:-}"
+  if [[ -z "${scripts_repo}" ]]; then
+    show_log "SCRIPTS_REPO not configured — skipping"
+  else
+    local scripts_dir="${HOME}/Developer/scripts"
+    if [[ -d "${scripts_dir}/.git" ]]; then
+      show_log "Updating existing scripts repo..."
+      local pull_exit=0
+      git -C "${scripts_dir}" pull --ff-only >>"${LOG_FILE}" 2>&1 || pull_exit=$?
+      check_success "${pull_exit}" "Scripts repo update" || true
+    else
+      show_log "Cloning scripts repo..."
+      mkdir -p "${HOME}/Developer"
+      local clone_exit=0
+      git clone "${scripts_repo}" "${scripts_dir}" >>"${LOG_FILE}" 2>&1 || clone_exit=$?
+      check_success "${clone_exit}" "Scripts repo clone" || true
+    fi
+  fi
+
   # Summary
   section "Claude Setup Summary"
 

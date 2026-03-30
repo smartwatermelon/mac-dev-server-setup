@@ -27,6 +27,7 @@ EXTERNAL_STORAGE_VOLUME=""
 # Claude Code (optional — leave empty to skip)
 CLAUDE_WRAPPER_REPO=""
 CLAUDE_CONFIG_REPO=""
+SCRIPTS_REPO=""
 
 # Terminal configuration (optional)
 TERMINAL_PROFILE_FILE=""
