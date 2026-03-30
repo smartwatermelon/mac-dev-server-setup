@@ -29,6 +29,10 @@ CLAUDE_WRAPPER_REPO=""
 CLAUDE_CONFIG_REPO=""
 SCRIPTS_REPO=""
 
+# MCP servers (optional — leave empty to skip)
+# Context7 API key for documentation lookup MCP
+CONTEXT7_API_KEY=""
+
 # Terminal configuration (optional)
 TERMINAL_PROFILE_FILE=""
 USE_ITERM2="false"

@@ -59,6 +59,7 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 | Java (Azul Zulu or Temurin) | Android/Gradle requirement |
 | Dotfiles sync | Clone and link bash configuration repo |
 | Claude Code CLI | AI-assisted development |
+| Claude Code MCP servers | Context7 (docs), headroom (compression) globally; project-specific MCPs per-repo |
 | GitHub CLI + SSH keys | Repository access |
 
 ## User Model Change
@@ -289,6 +290,8 @@ Script should verify:
 - [ ] `npm --version` succeeds
 - [ ] Dotfiles linked and shell configured
 - [ ] Homebrew doctor passes
+- [ ] `claude mcp list` shows context7 and headroom connected
+- [ ] `claude auth login` completed (enables cloud-synced MCPs: Sentry, Gmail, Calendar, etc.)
 
 ## Open Questions
 
