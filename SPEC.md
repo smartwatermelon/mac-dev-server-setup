@@ -227,6 +227,18 @@ Note: Xcode installed via App Store or mas CLI, not Homebrew cask.
    - Clone dotfiles repo
    - Create symlinks
    - Source configuration
+5. Create `app-setup/claude-setup.sh`
+   - Install Claude Code CLI
+   - Clone claude-config repo (`~/.claude`)
+   - Register plugin marketplaces (superpowers, claude-code-workflows,
+     smartwatermelon, claude-code-plugins, claude-plugins-official)
+   - Install plugins (superpowers, ci-workflows, code-critic, etc.)
+   - Setup MCP servers (Context7, headroom)
+   - Verify GitHub CLI authentication
+   - Verify post-push-loop readiness
+6. Create `app-setup/storage-setup.sh`
+   - Configure external storage volume
+   - Set up Time Machine (optional)
 
 ### Phase 4: Integration and Testing
 
@@ -292,8 +304,13 @@ Script should verify:
 - [ ] Dotfiles linked and shell configured
 - [ ] Homebrew doctor passes
 - [ ] `claude mcp list` shows context7 and headroom connected
-- [ ] `claude auth login` completed (enables cloud-synced MCPs: Sentry, Gmail, Calendar, etc.)
-- [ ] `gh auth status` succeeds (required for `/post-push-loop` CI monitoring)
+- [ ] `claude plugins marketplace list` shows all 5 marketplaces
+- [ ] `claude plugins list` shows installed plugins
+  (superpowers, ci-workflows, code-critic, etc.)
+- [ ] `claude auth login` completed
+  (enables cloud-synced MCPs: Sentry, Gmail, Calendar, etc.)
+- [ ] `gh auth status` succeeds
+  (required for `/post-push-loop` CI monitoring)
 - [ ] `~/.claude/scripts/post-push-status.sh` exists and is executable
 - [ ] `~/.config/git/hooks/pre-push` contains `POSTPUSH_LOOP` support
 
