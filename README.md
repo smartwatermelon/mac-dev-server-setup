@@ -22,7 +22,12 @@ Automated setup for an Apple Silicon Mac Mini as a mobile development build serv
 3. **On Mac Mini desktop** (not SSH): `cd ~/Downloads/macmini-setup && ./first-boot.sh`
 4. **On Mac Mini**: `cd ~/app-setup && ./run-app-setup.sh` (installs dev tools)
 
-**Result**: Dev server at `your-server-name.local`, ready for builds. Run `claude auth login` post-setup to enable cloud-synced MCPs (Sentry, Gmail, Calendar).
+**Post-setup** (manual):
+
+1. `claude auth login` (enables cloud-synced MCPs: Sentry, Gmail, Calendar)
+2. `gh auth login` (enables `/post-push-loop` CI monitoring)
+
+**Result**: Dev server at `your-server-name.local`, ready for builds.
 
 More detail in [Prerequisites](docs/prerequisites.md) and [Environment Variables](docs/environment-variables.md).
 
@@ -34,7 +39,9 @@ Three phases, two machines.
 
 **Phase 2** (`first-boot.sh`, on the Mac Mini): Validates the hardware fingerprint, imports the keychain, runs 15+ setup modules (SSH, Homebrew, FileVault, Time Machine, etc). Has to be run from the local desktop, not SSH.
 
-**Phase 3** (`run-app-setup.sh`, on the Mac Mini): Discovers and runs all `*-setup.sh` scripts in dependency order -- Xcode, Node.js, Android SDK, and dotfiles.
+**Phase 3** (`run-app-setup.sh`, on the Mac Mini): Discovers and runs
+all `*-setup.sh` scripts in dependency order -- Xcode, Node.js,
+Android SDK, dotfiles, Claude Code (CLI + plugins + MCPs), and storage.
 
 ### Configuration flow
 
@@ -130,7 +137,9 @@ See [Prerequisites Guide](docs/prerequisites.md) for validation commands.
 │   ├── xcode-setup.sh            # Xcode via mas, license, simulators
 │   ├── node-setup.sh             # npm global config, eas-cli
 │   ├── android-setup.sh          # SDK components, licenses, ANDROID_HOME
-│   └── dotfiles-setup.sh         # Clone repo, run install script
+│   ├── dotfiles-setup.sh         # Clone repo, run install script
+│   ├── claude-setup.sh           # CLI, plugins, MCP servers, post-push-loop
+│   └── storage-setup.sh          # External storage configuration
 ├── scripts/
 │   └── server/
 │       ├── first-boot.sh          # Main provisioning script (15+ modules)
