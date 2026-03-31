@@ -60,7 +60,8 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 | Dotfiles sync | Clone and link bash configuration repo |
 | Claude Code CLI | AI-assisted development |
 | Claude Code MCP servers | Context7 (docs), headroom (compression) globally; project-specific MCPs per-repo |
-| GitHub CLI + SSH keys | Repository access |
+| Post-push loop | CI monitoring via `/post-push-loop` — cross-repo: script in `claude-config`, hook in `dotfiles`, deps in `formulae.txt` |
+| GitHub CLI + SSH keys | Repository access (also required for post-push-loop `gh api` calls) |
 
 ## User Model Change
 
@@ -292,6 +293,9 @@ Script should verify:
 - [ ] Homebrew doctor passes
 - [ ] `claude mcp list` shows context7 and headroom connected
 - [ ] `claude auth login` completed (enables cloud-synced MCPs: Sentry, Gmail, Calendar, etc.)
+- [ ] `gh auth status` succeeds (required for `/post-push-loop` CI monitoring)
+- [ ] `~/.claude/scripts/post-push-status.sh` exists and is executable
+- [ ] `~/.config/git/hooks/pre-push` contains `POSTPUSH_LOOP` support
 
 ## Open Questions
 
