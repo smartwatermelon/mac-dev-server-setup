@@ -384,8 +384,73 @@ PLIST
     # Project-specific MCPs (RevenueCat, Brevo, etc.) are configured per-repo
     # in each project's .mcp.json file.
     show_log "Note: Run 'claude auth login' to enable cloud-synced MCPs (Sentry, Gmail, Calendar, etc.)"
+
+    # Install Claude Code plugin marketplaces and plugins
+    CURRENT_SECTION="Plugins"
+    section "Claude Code Plugins"
+
+    # Marketplaces as ordered name:repo pairs
+    local marketplaces=(
+      "superpowers-marketplace:obra/superpowers-marketplace"
+      "claude-code-workflows:wshobson/agents"
+      "smartwatermelon-marketplace:smartwatermelon/smartwatermelon-marketplace"
+      "claude-code-plugins:anthropics/claude-code"
+      "claude-plugins-official:anthropics/claude-plugins-official"
+    )
+
+    for entry in "${marketplaces[@]}"; do
+      local mp_name="${entry%%:*}"
+      local mp_repo="${entry#*:}"
+      if "${claude_cmd}" plugins marketplace list 2>/dev/null | grep -q "${mp_name}"; then
+        show_log "OK: ${mp_name} marketplace registered"
+      else
+        local mp_exit=0
+        show_log "Adding ${mp_name} marketplace..."
+        "${claude_cmd}" plugins marketplace add "${mp_repo}" >>"${LOG_FILE}" 2>&1 || mp_exit=$?
+        check_success "${mp_exit}" "Add ${mp_name}" || true
+      fi
+    done
+
+    # Enabled plugins (plugin@marketplace)
+    local enabled_plugins=(
+      "superpowers@superpowers-marketplace"
+      "comprehensive-review@claude-code-workflows"
+      "tdd-workflows@claude-code-workflows"
+      "debugging-toolkit@claude-code-workflows"
+      "frontend-mobile-development@claude-code-workflows"
+      "code-critic@smartwatermelon-marketplace"
+      "react-native-3d@smartwatermelon-marketplace"
+      "frontend-design@claude-code-plugins"
+    )
+
+    for plugin in "${enabled_plugins[@]}"; do
+      if "${claude_cmd}" plugins list 2>/dev/null | grep -q "${plugin}"; then
+        show_log "OK: ${plugin} installed"
+      else
+        local pl_exit=0
+        show_log "Installing ${plugin}..."
+        "${claude_cmd}" plugins install "${plugin}" --scope user >>"${LOG_FILE}" 2>&1 || pl_exit=$?
+        check_success "${pl_exit}" "Install ${plugin}" || true
+      fi
+    done
   else
     show_log "Claude Code not installed — skipping MCP setup"
+  fi
+
+  # Verify GitHub CLI authentication (required for post-push-loop)
+  CURRENT_SECTION="GitHub CLI Auth"
+  section "GitHub CLI Authentication"
+
+  if command -v gh &>/dev/null; then
+    if gh auth status &>/dev/null; then
+      show_log "OK: gh CLI authenticated"
+    else
+      show_log "WARNING: gh CLI not authenticated"
+      show_log "Run 'gh auth login' to enable post-push-loop CI monitoring"
+      show_log "(Required for: /post-push-loop, PR review iteration, CI status checks)"
+    fi
+  else
+    show_log "WARNING: gh CLI not installed — install via 'brew install gh'"
   fi
 
   # Clone user scripts repository
@@ -409,6 +474,50 @@ PLIST
       git clone "${scripts_repo}" "${scripts_dir}" >>"${LOG_FILE}" 2>&1 || clone_exit=$?
       check_success "${clone_exit}" "Scripts repo clone" || true
     fi
+  fi
+
+  # Verify post-push-loop dependencies
+  CURRENT_SECTION="Post-Push Loop"
+  section "Post-Push Loop Readiness"
+
+  local ppl_ready=true
+
+  if [[ -x "${HOME}/.claude/scripts/post-push-status.sh" ]]; then
+    show_log "OK: post-push-status.sh"
+  else
+    show_log "MISSING: ~/.claude/scripts/post-push-status.sh"
+    ppl_ready=false
+  fi
+
+  if [[ -f "${HOME}/.config/git/hooks/pre-push" ]]; then
+    if grep -q "POSTPUSH_LOOP" "${HOME}/.config/git/hooks/pre-push" 2>/dev/null; then
+      show_log "OK: pre-push hook (POSTPUSH_LOOP support)"
+    else
+      show_log "WARNING: pre-push hook exists but lacks POSTPUSH_LOOP support"
+      ppl_ready=false
+    fi
+  else
+    show_log "MISSING: ~/.config/git/hooks/pre-push"
+    ppl_ready=false
+  fi
+
+  for dep in gh jq python3; do
+    if command -v "${dep}" &>/dev/null; then
+      show_log "OK: ${dep}"
+    else
+      show_log "MISSING: ${dep}"
+      ppl_ready=false
+    fi
+  done
+
+  if ! gh auth status &>/dev/null; then
+    ppl_ready=false
+  fi
+
+  if [[ "${ppl_ready}" == true ]]; then
+    show_log "/post-push-loop: READY"
+  else
+    show_log "/post-push-loop: NOT READY (see warnings above)"
   fi
 
   # Summary
