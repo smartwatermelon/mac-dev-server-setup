@@ -420,6 +420,7 @@ PLIST
       "frontend-mobile-development@claude-code-workflows"
       "code-critic@smartwatermelon-marketplace"
       "react-native-3d@smartwatermelon-marketplace"
+      "ci-workflows@smartwatermelon-marketplace"
       "frontend-design@claude-code-plugins"
     )
 
