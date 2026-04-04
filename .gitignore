@@ -70,7 +70,6 @@ app-setup/templates/transmission-done.sh
 
 # Claude Code runtime files
 .claude/
-CLAUDE.md
 
 # Compiled files
 *.o
