@@ -6,16 +6,16 @@
 SERVER_NAME="macmini"
 
 # 1Password configuration
-ONEPASSWORD_VAULT="personal"
-ONEPASSWORD_APPLEID_ITEM="Apple"
-ONEPASSWORD_TIMEMACHINE_ITEM="Synology NAS - TimeMachine"
-SSH_KEY_ITEM="SSH Keys"
+ONEPASSWORD_VAULT="Your-Vault-Name"
+ONEPASSWORD_APPLEID_ITEM="Your-AppleID-Item"
+ONEPASSWORD_TIMEMACHINE_ITEM="Your-TimeMachine-Item"
+SSH_KEY_ITEM="Your-SSH-Key-Item"
 
 # Monitoring
 MONITORING_EMAIL="your-email@example.com"
 
 # Development configuration
-DOTFILES_REPO="git@github.com:smartwatermelon/dotfiles.git"
+DOTFILES_REPO="git@github.com:YOUR_USER/dotfiles.git"
 ANDROID_SDK_VERSION="34"
 NODE_VERSION="lts"
 XCODE_VERSION=""  # Empty = latest from App Store

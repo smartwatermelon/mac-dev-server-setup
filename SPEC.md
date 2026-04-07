@@ -18,7 +18,7 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 | --- | --- |
 | Hardware | M4 Mac Mini, 16GB unified memory, 512GB SSD |
 | macOS | 15.x (Sequoia) or later |
-| Primary user | `andrewrich` (existing Apple Account, created during macOS setup) |
+| Primary user | `<admin-user>` (existing Apple Account, created during macOS Setup Assistant) |
 | Access methods | SSH (primary), Synergy, HDMI/KVM (secondary) |
 
 ## Architecture Decisions
@@ -67,7 +67,7 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 
 **Original**: Creates new `operator` user on fresh macOS install, configures automatic login.
 
-**New**: Assumes `andrewrich` user already exists (created during macOS Setup Assistant with Apple Account). Script configures existing user rather than creating one.
+**New**: Assumes the admin user already exists (created during macOS Setup Assistant with Apple Account). Script configures the existing user rather than creating one.
 
 This simplifies the flow:
 
