@@ -34,7 +34,6 @@ shellcheck *.sh setup-*.sh scripts/*.sh
 # Verify 1Password connectivity (dev machine only — verify hostname first!)
 op vault list
 ```
-
 <!-- headroom:learn:start -->
 
 ## Headroom Learned Patterns
