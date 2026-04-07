@@ -10,7 +10,7 @@ hostname
 sw_vers
 ```
 
-- If hostname is **NOT** a known server name (TILSIT, MIMOLETTE): you are on the **development Mac**
+- If hostname is **NOT** a known server name (listed in your `config.conf` as `SERVER_NAME`): you are on the **development Mac**
   - Safe: shellcheck, linting, editing scripts, `prep-airdrop.sh`
   - FORBIDDEN: running setup scripts (`first-boot.sh`, `setup-*.sh`), testing system services
 - If hostname **IS** a known server name: you are on the **target build server**
@@ -49,21 +49,21 @@ op vault list
 - After a failed commit, check `head -6 .git/last-review-result.log` to see the VERDICT; fix shellcheck issues, then re-add and recommit
 - `claude --version` inside `$()` in shell scripts always triggers SC2155 — use `local ver; ver=$(claude --version 2>/dev/null || echo 'installed'); show_log "Claude Code: $ver"`
 
-### SSH PATH on MIMOLETTE
+### SSH PATH on Target Server
 
 *~1,200 tokens/session saved*
 
-- Non-login SSH shells on MIMOLETTE do NOT have Homebrew or pipx in PATH
+- Non-login SSH shells on the target server do NOT have Homebrew or pipx in PATH
 - Always prefix SSH commands with: `export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"`
-- `brew` is at `/opt/homebrew/bin/brew` on MIMOLETTE (Apple Silicon)
+- `brew` is at `/opt/homebrew/bin/brew` on Apple Silicon targets
 
 ### SSH Access
 
 *~800 tokens/session saved*
 
-- The server is **MIMOLETTE** (Mac Mini), accessed as `andrewrich@mimolette.local` — NOT `mimolette` (bare hostname fails with 'Could not resolve hostname')
-- Always use `mimolette.local` in SSH commands
-- SSH has passwordless access and sudo on MIMOLETTE
+- The target server (Mac Mini) is accessed as `<user>@<server>.local` — NOT bare hostname (fails with 'Could not resolve hostname')
+- Always use `<server>.local` (mDNS) in SSH commands
+- SSH has passwordless key-based access and sudo on the target server
 
 ### File Read Before Write
 
@@ -77,7 +77,7 @@ op vault list
 *~700 tokens/session saved*
 
 - Headroom is installed via pipx as `headroom-ai` and requires extra dependencies: `pipx inject headroom-ai httpx[http2] h2`
-- Headroom LaunchAgent plist is at `~/Library/LaunchAgents/com.headroom.proxy.plist`; must be deployed to MIMOLETTE for `ANTHROPIC_BASE_URL` to work
+- Headroom LaunchAgent plist is at `~/Library/LaunchAgents/com.headroom.proxy.plist`; must be deployed to the target server for `ANTHROPIC_BASE_URL` to work
 - Use `mcp__headroom__headroom_retrieve` (not `headroom_retrieve`) as the MCP tool name
 
 ### Git Merge Workflow
