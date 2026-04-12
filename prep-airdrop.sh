@@ -138,6 +138,17 @@ echo "Validating configuration..."
 : "${ONEPASSWORD_TIMEMACHINE_ITEM:?ONEPASSWORD_TIMEMACHINE_ITEM must be set in config.conf}"
 : "${ONEPASSWORD_APPLEID_ITEM:?ONEPASSWORD_APPLEID_ITEM must be set in config.conf}"
 
+# Guard: this script requires interactive 1Password authentication to access
+# the Personal vault. The service account token (set in ~/.config/bash/1password.sh)
+# only has access to the Automation vault.
+# Use 'opp' as a drop-in replacement: opp item get "TimeMachine" --vault personal
+if [[ -n "${OP_SERVICE_ACCOUNT_TOKEN:-}" ]]; then
+  echo "ERROR: OP_SERVICE_ACCOUNT_TOKEN is set — this script requires interactive 1Password auth." >&2
+  echo "Run with 'opp' prefix for personal vault access, or use a subshell:" >&2
+  echo "  ( unset OP_SERVICE_ACCOUNT_TOKEN; ./$(basename "$0") )" >&2
+  exit 1
+fi
+
 # Handle command line arguments
 if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   echo "Usage: $(basename "$0") [output_path] [script_path]"
