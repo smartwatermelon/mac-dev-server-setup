@@ -32,7 +32,8 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 shellcheck *.sh setup-*.sh scripts/*.sh
 
 # Verify 1Password connectivity (dev machine only — verify hostname first!)
-op vault list
+op vault list      # service account — Automation vault only, non-interactive
+opp vault list     # interactive auth — Personal vault access (prep-airdrop.sh requires this)
 ```
 
 <!-- headroom:learn:start -->
