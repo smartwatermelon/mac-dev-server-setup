@@ -466,6 +466,22 @@ import_external_keychain_credentials() {
     show_log "⚠️ WiFi credential not found in external keychain (optional)"
   fi
 
+  # Import 1Password service account token (optional)
+  # Written under ADMIN_USERNAME so claude-wrapper's `id -un` lookup matches
+  # (see claude-wrapper/lib/credentials.sh: security find-generic-password -a "$(id -un)").
+  # shellcheck disable=SC2154 # KEYCHAIN_OP_SERVICE loaded from sourced manifest
+  if op_service_token=$(security find-generic-password -s "${KEYCHAIN_OP_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" -w "${EXTERNAL_KEYCHAIN}" 2>/dev/null); then
+    security delete-generic-password -s "${KEYCHAIN_OP_SERVICE}" -a "${ADMIN_USERNAME}" &>/dev/null || true
+    if security add-generic-password -s "${KEYCHAIN_OP_SERVICE}" -a "${ADMIN_USERNAME}" -w "${op_service_token}" -D "1Password Service Account - claude-automation" -A -U; then
+      show_log "✅ 1Password service account token imported to administrator keychain"
+    else
+      collect_warning "Failed to import 1Password service account token to administrator keychain"
+    fi
+    unset op_service_token
+  else
+    show_log "⚠️ 1Password service account token not found in external keychain (optional)"
+  fi
+
   return 0
 }
 
