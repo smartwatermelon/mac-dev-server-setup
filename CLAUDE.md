@@ -34,6 +34,9 @@ shellcheck *.sh setup-*.sh scripts/*.sh
 # Verify 1Password connectivity (dev machine only — verify hostname first!)
 op vault list      # service account — Automation vault only, non-interactive
 opp vault list     # interactive auth — Personal vault access (prep-airdrop.sh requires this)
+# `opp` is a local shell function from ~/.config/bash/1password.sh (dotfiles)
+# that runs `op` in a subshell with OP_SERVICE_ACCOUNT_TOKEN unset, forcing
+# interactive Personal-vault auth. Not a standard macOS/Homebrew tool.
 ```
 
 <!-- headroom:learn:start -->
