@@ -666,13 +666,13 @@ fi
 # Sourced from the dev machine's login Keychain (created during Phase 1–3 bootstrap).
 # Stored under SERVER_NAME_LOWER account in external keychain; first-boot.sh
 # re-installs it under ADMIN_USERNAME so claude-wrapper's id -un lookup matches.
-echo "Provisioning 1Password service account token..."
 op_service_token="$(security find-generic-password \
   -a "${USER}" \
   -s "op-service-account-claude-automation" \
   -w 2>/dev/null || true)"
 
 if [[ -n "${op_service_token}" ]]; then
+  echo "Provisioning 1Password service account token..."
   store_external_keychain_credential \
     "op-service-account-claude-automation" \
     "${SERVER_NAME_LOWER}" \

@@ -488,6 +488,11 @@ import_external_keychain_credentials() {
   # timeout so once unlocked (manually or via console login), it stays unlocked
   # until sleep. This is what lets claude-wrapper read OP_SERVICE_ACCOUNT_TOKEN
   # from the Keychain without re-prompting.
+  #
+  # Flags: -l = lock-on-sleep, -u = lock-after-timeout (controlled by -t).
+  # Omitting -t leaves the timeout unset, which `security` interprets as
+  # "no timeout" (confirmed via `security show-keychain-info`). So "-l -u"
+  # without "-t N" = lock-on-sleep only, no idle lock.
   if security set-keychain-settings -l -u "${HOME}/Library/Keychains/login.keychain-db"; then
     show_log "✅ Login keychain configured: lock-on-sleep, no idle timeout"
   else
