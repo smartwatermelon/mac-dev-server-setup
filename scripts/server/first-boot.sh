@@ -482,6 +482,18 @@ import_external_keychain_credentials() {
     show_log "⚠️ 1Password service account token not found in external keychain (optional)"
   fi
 
+  # Configure login keychain for headless operation
+  # Mac Mini dev servers don't have GUI auto-login (iCloud + TouchID accounts
+  # can't use it), so the keychain starts locked on reboot. Disable the idle
+  # timeout so once unlocked (manually or via console login), it stays unlocked
+  # until sleep. This is what lets claude-wrapper read OP_SERVICE_ACCOUNT_TOKEN
+  # from the Keychain without re-prompting.
+  if security set-keychain-settings -l -u "${HOME}/Library/Keychains/login.keychain-db"; then
+    show_log "✅ Login keychain configured: lock-on-sleep, no idle timeout"
+  else
+    collect_warning "Failed to configure login keychain lock behavior — may re-lock after idle"
+  fi
+
   return 0
 }
 
