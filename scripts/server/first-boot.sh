@@ -466,39 +466,6 @@ import_external_keychain_credentials() {
     show_log "⚠️ WiFi credential not found in external keychain (optional)"
   fi
 
-  # Import 1Password service account token (optional)
-  # Written under ADMIN_USERNAME so claude-wrapper's `id -un` lookup matches
-  # (see claude-wrapper/lib/credentials.sh: security find-generic-password -a "$(id -un)").
-  # shellcheck disable=SC2154 # KEYCHAIN_OP_SERVICE loaded from sourced manifest
-  if op_service_token=$(security find-generic-password -s "${KEYCHAIN_OP_SERVICE}" -a "${KEYCHAIN_ACCOUNT}" -w "${EXTERNAL_KEYCHAIN}" 2>/dev/null); then
-    security delete-generic-password -s "${KEYCHAIN_OP_SERVICE}" -a "${ADMIN_USERNAME}" &>/dev/null || true
-    if security add-generic-password -s "${KEYCHAIN_OP_SERVICE}" -a "${ADMIN_USERNAME}" -w "${op_service_token}" -D "1Password Service Account - claude-automation" -A -U; then
-      show_log "✅ 1Password service account token imported to administrator keychain"
-    else
-      collect_warning "Failed to import 1Password service account token to administrator keychain"
-    fi
-    unset op_service_token
-  else
-    show_log "⚠️ 1Password service account token not found in external keychain (optional)"
-  fi
-
-  # Configure login keychain for headless operation
-  # Mac Mini dev servers don't have GUI auto-login (iCloud + TouchID accounts
-  # can't use it), so the keychain starts locked on reboot. Disable the idle
-  # timeout so once unlocked (manually or via console login), it stays unlocked
-  # until sleep. This is what lets claude-wrapper read OP_SERVICE_ACCOUNT_TOKEN
-  # from the Keychain without re-prompting.
-  #
-  # Flags: -l = lock-on-sleep, -u = lock-after-timeout (controlled by -t).
-  # Omitting -t leaves the timeout unset, which `security` interprets as
-  # "no timeout" (confirmed via `security show-keychain-info`). So "-l -u"
-  # without "-t N" = lock-on-sleep only, no idle lock.
-  if security set-keychain-settings -l -u "${HOME}/Library/Keychains/login.keychain-db"; then
-    show_log "✅ Login keychain configured: lock-on-sleep, no idle timeout"
-  else
-    collect_warning "Failed to configure login keychain lock behavior — may re-lock after idle"
-  fi
-
   return 0
 }
 

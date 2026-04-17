@@ -188,6 +188,29 @@ EOF
   fi
 fi
 
+# Allow the dev machine's ssh wrapper to inject OP_SERVICE_ACCOUNT_TOKEN via
+# SendEnv. claude-wrapper reads the token from the env and skips the Keychain
+# lookup, so nothing else on the target needs access to 1Password credentials.
+# sshd on macOS is launched on-demand by launchd and re-reads sshd_config on
+# every connection, so no reload is required.
+SSHD_ENV_CONF="/etc/ssh/sshd_config.d/200-claude-env.conf"
+SSHD_ENV_LINE="AcceptEnv OP_SERVICE_ACCOUNT_TOKEN"
+if [[ -f "${SSHD_ENV_CONF}" ]] && grep -Fxq "${SSHD_ENV_LINE}" "${SSHD_ENV_CONF}" 2>/dev/null; then
+  log "sshd AcceptEnv config already present at ${SSHD_ENV_CONF}"
+else
+  log "Writing sshd AcceptEnv config to ${SSHD_ENV_CONF}..."
+  if sudo -p "[SSH env] Enter password to configure sshd AcceptEnv: " tee "${SSHD_ENV_CONF}" >/dev/null <<EOF; then
+# Written by mac-dev-server-setup setup-ssh-access.sh
+# Accept OP_SERVICE_ACCOUNT_TOKEN injected by the dev machine's ssh wrapper
+# (SendEnv in ~/.ssh/config). claude-wrapper reads it from the environment.
+${SSHD_ENV_LINE}
+EOF
+    show_log "✅ sshd AcceptEnv config written to ${SSHD_ENV_CONF}"
+  else
+    collect_warning "Failed to write sshd AcceptEnv config — OP_SERVICE_ACCOUNT_TOKEN will not reach this target via ssh"
+  fi
+fi
+
 # Copy SSH keys if available
 if [[ -d "${SSH_KEY_SOURCE}" ]]; then
   log "Found SSH keys at ${SSH_KEY_SOURCE}"

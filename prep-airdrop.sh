@@ -613,7 +613,6 @@ create_keychain_manifest() {
 # External keychain service identifiers for credential retrieval
 KEYCHAIN_TIMEMACHINE_SERVICE="timemachine-${SERVER_NAME_LOWER}"
 KEYCHAIN_WIFI_SERVICE="wifi-${SERVER_NAME_LOWER}"
-KEYCHAIN_OP_SERVICE="op-service-account-claude-automation"
 KEYCHAIN_ACCOUNT="${SERVER_NAME_LOWER}"
 EOF
   chmod 600 "${OUTPUT_PATH}/config/keychain_manifest.conf"
@@ -660,28 +659,6 @@ EOF
   # Clear credentials from memory
   unset TM_USERNAME TM_PASSWORD
   echo "✅ Time Machine credentials stored in Keychain"
-fi
-
-# Provision 1Password service account token for target machine
-# Sourced from the dev machine's login Keychain (created during Phase 1–3 bootstrap).
-# Stored under SERVER_NAME_LOWER account in external keychain; first-boot.sh
-# re-installs it under ADMIN_USERNAME so claude-wrapper's id -un lookup matches.
-op_service_token="$(security find-generic-password \
-  -a "${USER}" \
-  -s "op-service-account-claude-automation" \
-  -w 2>/dev/null || true)"
-
-if [[ -n "${op_service_token}" ]]; then
-  echo "Provisioning 1Password service account token..."
-  store_external_keychain_credential \
-    "op-service-account-claude-automation" \
-    "${SERVER_NAME_LOWER}" \
-    "${op_service_token}" \
-    "Mac Server Setup - 1Password Service Account Token"
-  unset op_service_token
-  echo "✅ 1Password service account token staged for target"
-else
-  collect_warning "1Password service account token not found in dev Keychain — target will not have op CLI access"
 fi
 
 # Create and save one-time link for Apple ID password

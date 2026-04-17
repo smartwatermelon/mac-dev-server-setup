@@ -39,6 +39,23 @@ opp vault list     # interactive auth — Personal vault access (prep-airdrop.sh
 # interactive Personal-vault auth. Not a standard macOS/Homebrew tool.
 ```
 
+### 1Password Credential Flow to Target
+
+The target Mac Mini does NOT store the 1Password service account token in its
+Keychain. Instead:
+
+1. Dev machine's ssh wrapper (`~/Developer/scripts/ssh`) reads a
+   `# op: OP_SERVICE_ACCOUNT_TOKEN=…` annotation in `~/.ssh/config` and
+   resolves it interactively via `op read` before exec'ing real ssh.
+2. Wrapper exports the token; ssh forwards it via `SendEnv OP_SERVICE_ACCOUNT_TOKEN`.
+3. Target sshd accepts it via `AcceptEnv OP_SERVICE_ACCOUNT_TOKEN` (written to
+   `/etc/ssh/sshd_config.d/200-claude-env.conf` by `setup-ssh-access.sh`).
+4. `claude-wrapper/lib/credentials.sh` sees the token already in env and skips
+   the Keychain lookup.
+
+Consequence: non-ssh sessions on the target (console login, LaunchAgents) do
+not get the token. That is intentional — there is no current use case for it.
+
 <!-- headroom:learn:start -->
 
 ## Headroom Learned Patterns
