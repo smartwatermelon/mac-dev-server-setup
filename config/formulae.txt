@@ -52,3 +52,7 @@ task
 
 # Network tools (retained)
 openssh
+
+# Mail delivery (ralph-burndown nightly failure emails; see
+# smartwatermelon/ralph-burndown scripts/bootstrap-msmtp-keychain.sh)
+msmtp
