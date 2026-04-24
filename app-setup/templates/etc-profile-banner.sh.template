@@ -1,0 +1,11 @@
+#!/bin/bash
+# BEGIN mac-dev-server-automount-banner
+# Alerts interactive logins if the boot-time SSD mount failed.
+# Installed by setup-external-automount.sh (mac-dev-server-setup).
+if [[ $- == *i* ]] && [[ -f /var/run/mount-external-storage.FAILED ]]; then
+  printf '\033[1;31m⚠️  EXTERNAL STORAGE MOUNT FAILED AT BOOT\033[0m\n'
+  reason=$(cat /var/run/mount-external-storage.FAILED 2>/dev/null || true)
+  printf '   Reason: %s\n' "$reason"
+  printf '   Log:    /var/log/mount-external-storage.log\n\n'
+fi
+# END mac-dev-server-automount-banner
