@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.mac-dev-server.automount-external-storage</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Library/Application Support/mac-dev-server/mount-external-storage.sh</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>LaunchEvents</key>
+  <dict>
+    <key>com.apple.iokit.matching</key>
+    <dict>
+      <key>com.mac-dev-server.external-storage-appeared</key>
+      <dict>
+        <key>IOProviderClass</key>
+        <string>AppleAPFSVolume</string>
+        <key>UUID</key>
+        <string>{{UUID}}</string>
+      </dict>
+    </dict>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/var/log/mount-external-storage.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/var/log/mount-external-storage.log</string>
+</dict>
+</plist>

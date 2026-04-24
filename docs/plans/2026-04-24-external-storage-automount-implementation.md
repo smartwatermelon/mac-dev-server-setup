@@ -307,7 +307,7 @@ Create `app-setup/templates/com.mac-dev-server.automount-external-storage.plist.
       <key>com.mac-dev-server.external-storage-appeared</key>
       <dict>
         <key>IOProviderClass</key>
-        <string>IOMedia</string>
+        <string>AppleAPFSVolume</string>
         <key>UUID</key>
         <string>{{UUID}}</string>
       </dict>

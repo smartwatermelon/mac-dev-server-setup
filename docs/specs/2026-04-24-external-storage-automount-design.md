@@ -152,7 +152,7 @@ Example matching dict:
     <key>com.mac-dev-server.external-storage-appeared</key>
     <dict>
       <key>IOProviderClass</key>
-      <string>IOMedia</string>
+      <string>AppleAPFSVolume</string>
       <key>UUID</key>
       <string>0AE8C5DE-4380-4942-AE72-D8784B57CA8E</string>
     </dict>
@@ -266,7 +266,7 @@ EXTERNAL_STORAGE_UUID=""     # auto-discovered by setup-external-automount.sh
 kernel → launchd → (parallel):
   ├─ sshd loads
   ├─ diskarbitrationd enumerates APFS containers
-  │    └─ APFS volume UUID <...> registered as IOMedia
+  │    └─ APFS volume UUID <...> registered as AppleAPFSVolume
   │         └─ IOKit match event fires (keyed on UUID)
   │              └─ launchd runs mount-external-storage.sh
   │                   ├─ diskutil info <UUID> confirms discoverable
