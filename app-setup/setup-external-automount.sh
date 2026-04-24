@@ -331,10 +331,59 @@ do_install() {
   show_log "next: run Phase 5 of the test plan (fdesetup authrestart) to verify boot behavior"
 }
 
-# --- dispatch (expanded in Task 7/8/9) ---
+# --- uninstall ---
+do_uninstall() {
+  show_log "uninstalling"
+
+  # Bootout (tolerate not-loaded)
+  if sudo /bin/launchctl list 2>/dev/null | grep -q "${LAUNCHD_LABEL}"; then
+    show_log "booting out ${LAUNCHD_LABEL}"
+    sudo /bin/launchctl bootout system "${TARGET_PLIST}" || {
+      show_err "bootout failed; continuing to remove files"
+    }
+  else
+    show_log "daemon not loaded; skipping bootout"
+  fi
+
+  # Remove target files
+  if [[ -f "${TARGET_PLIST}" ]]; then
+    sudo /bin/rm -f "${TARGET_PLIST}"
+    show_log "removed ${TARGET_PLIST}"
+  fi
+  if [[ -d "${TARGET_SUPPORT_DIR}" ]]; then
+    sudo /bin/rm -rf "${TARGET_SUPPORT_DIR}"
+    show_log "removed ${TARGET_SUPPORT_DIR}"
+  fi
+
+  # Strip banner block from /etc/profile
+  if grep -qF "${PROFILE_BEGIN}" "${TARGET_PROFILE}"; then
+    local tmpfile
+    tmpfile="$(mktemp -t profile-new)"
+    sudo /usr/bin/sed \
+      -e "\\|${PROFILE_BEGIN}|,\\|${PROFILE_END}|d" \
+      "${TARGET_PROFILE}" | tee "${tmpfile}" >/dev/null
+    sudo /usr/bin/install -o root -g wheel -m 0444 \
+      "${tmpfile}" "${TARGET_PROFILE}"
+    rm -f "${tmpfile}"
+    show_log "removed banner block from ${TARGET_PROFILE}"
+  fi
+
+  # Clear runtime flag, just in case
+  sudo /bin/rm -f /var/run/mount-external-storage.FAILED
+
+  show_log "uninstall complete"
+}
+
+# --- dispatch ---
 main() {
   load_config
   verify_on_target
+
+  if [[ "${MODE}" == 'uninstall' ]]; then
+    do_uninstall
+    return 0
+  fi
+
   check_prerequisites
 
   local uuid
@@ -345,7 +394,6 @@ main() {
     dry-run) do_dry_run "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
     install-only) do_install_only "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
     install) do_install "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
-    uninstall) show_log "uninstall mode (not yet implemented; see Task 9)" ;;
     *)
       show_err "unexpected MODE: ${MODE}"
       exit 1
