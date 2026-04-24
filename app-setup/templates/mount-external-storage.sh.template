@@ -11,7 +11,7 @@
 #   1 - UUID not discoverable after wait-loop
 #   2 - diskutil mount failed
 #   3 - mount reported success but /Volumes/<label> missing
-#   4 - config file missing or unreadable
+#   4 - config missing, unreadable, or required vars empty
 
 set -uo pipefail
 
