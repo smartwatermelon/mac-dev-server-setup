@@ -48,6 +48,14 @@ clear_flag() {
 
 log "--- invocation: argv=[$*] caller=launchd ---"
 
+readonly LOCK_DIR='/var/run/mount-external-storage.lock'
+
+if ! mkdir "${LOCK_DIR}" 2>/dev/null; then
+  log "another instance holds ${LOCK_DIR}; exiting 0"
+  exit 0
+fi
+trap 'rmdir "${LOCK_DIR}" 2>/dev/null || true' EXIT
+
 if [[ ! -r "${CONF}" ]]; then
   logger -p daemon.crit -t mac-dev-server-automount \
     "config missing: ${CONF}"
@@ -61,8 +69,10 @@ fi
 # shellcheck source=/dev/null
 source "${CONF}"
 
-: "${EXTERNAL_STORAGE_UUID:?EXTERNAL_STORAGE_UUID not set in ${CONF}}"
-: "${EXTERNAL_STORAGE_VOLUME:?EXTERNAL_STORAGE_VOLUME not set in ${CONF}}"
+[[ -n "${EXTERNAL_STORAGE_UUID:-}" ]] \
+  || loud_fail 4 "EXTERNAL_STORAGE_UUID empty in ${CONF}"
+[[ -n "${EXTERNAL_STORAGE_VOLUME:-}" ]] \
+  || loud_fail 4 "EXTERNAL_STORAGE_VOLUME empty in ${CONF}"
 
 log "config loaded: volume=${EXTERNAL_STORAGE_VOLUME} uuid=${EXTERNAL_STORAGE_UUID}"
 
