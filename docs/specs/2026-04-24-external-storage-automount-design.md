@@ -491,11 +491,13 @@ daemon remotely.
 
 ## Open Questions
 
-- **Correct path for login-banner snippet.** `/etc/bashrc.d/` vs
-  `/etc/profile.d/` vs `/etc/profile` append vs `/etc/zshenv` — confirm
-  during implementation. The snippet must fire for interactive SSH logins
-  under the user's actual login shell (bash, per project standards) without
-  affecting non-interactive shells.
+- ~~**Correct path for login-banner snippet.**~~ **Resolved 2026-04-24:**
+  Append a BEGIN/END-tagged block to `/etc/profile`. On macOS,
+  `/etc/profile` already sources `/etc/bashrc` for bash shells and fires
+  for all SSH login shells. The snippet guards with `[[ $- == *i* ]]` so
+  non-interactive shells (scripts, cron) see no output. The `BEGIN` and
+  `END` marker comments allow `setup-external-automount.sh --uninstall`
+  to strip the block idempotently via `sed`.
 - **Should the uninstall path also roll back `storage-setup.sh` symlinks?**
   Probably not — symlinks are harmless when target is absent. Confirm.
 
