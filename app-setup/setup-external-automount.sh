@@ -283,6 +283,54 @@ do_install_only() {
   fi
 }
 
+# --- rollback on bootstrap failure ---
+rollback_plist() {
+  if [[ -f "${TARGET_PLIST}" ]]; then
+    show_err "rolling back: removing ${TARGET_PLIST}"
+    sudo /bin/rm -f "${TARGET_PLIST}" || true
+  fi
+}
+
+# --- full install: file copy + launchctl bootstrap ---
+do_install() {
+  local uuid="$1"
+  local volume="$2"
+
+  do_install_only "${uuid}" "${volume}"
+
+  # If already loaded (from a prior run), bootout first to pick up new plist.
+  if sudo /bin/launchctl list 2>/dev/null | grep -q "${LAUNCHD_LABEL}"; then
+    show_log "daemon already loaded; booting out before re-bootstrap"
+    sudo /bin/launchctl bootout system "${TARGET_PLIST}" || {
+      show_err "bootout of existing daemon failed; aborting"
+      exit 1
+    }
+  fi
+
+  show_log "loading LaunchDaemon"
+  local bootstrap_err
+  bootstrap_err="$(mktemp -t automount-bootstrap-err)"
+  if ! sudo /bin/launchctl bootstrap system "${TARGET_PLIST}" 2>"${bootstrap_err}"; then
+    show_err "launchctl bootstrap failed:"
+    cat "${bootstrap_err}" >&2
+    rm -f "${bootstrap_err}"
+    rollback_plist
+    exit 1
+  fi
+  rm -f "${bootstrap_err}"
+
+  # Verify loaded
+  if ! sudo /bin/launchctl list | grep -q "${LAUNCHD_LABEL}"; then
+    show_err "daemon did not appear in launchctl list after bootstrap"
+    rollback_plist
+    exit 1
+  fi
+  show_log "daemon loaded: ${LAUNCHD_LABEL}"
+
+  show_log "install complete"
+  show_log "next: run Phase 5 of the test plan (fdesetup authrestart) to verify boot behavior"
+}
+
 # --- dispatch (expanded in Task 7/8/9) ---
 main() {
   load_config
@@ -296,7 +344,7 @@ main() {
   case "${MODE}" in
     dry-run) do_dry_run "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
     install-only) do_install_only "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
-    install) show_log "install mode (not yet implemented; see Task 8)" ;;
+    install) do_install "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
     uninstall) show_log "uninstall mode (not yet implemented; see Task 9)" ;;
     *)
       show_err "unexpected MODE: ${MODE}"
