@@ -1,5 +1,5 @@
-#!/bin/bash
 # BEGIN mac-dev-server-automount-banner
+# shellcheck shell=bash
 # Alerts interactive logins if the boot-time SSD mount failed.
 # Installed by setup-external-automount.sh (mac-dev-server-setup).
 if [[ $- == *i* ]] && [[ -f /var/run/mount-external-storage.FAILED ]]; then
