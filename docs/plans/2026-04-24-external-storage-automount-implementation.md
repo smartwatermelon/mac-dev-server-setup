@@ -10,6 +10,8 @@
 
 **Source spec:** [`docs/specs/2026-04-24-external-storage-automount-design.md`](../specs/2026-04-24-external-storage-automount-design.md)
 
+> **Amendment 2026-04-24 (post-Phase-4):** `LaunchEvents → com.apple.iokit.matching` was removed from the plist. On a persistently-present volume it re-fires every ~30 seconds for the session lifetime (~2,880×/day, ~400MB/year of log noise). See the Design Note in the spec. The architecture is now "RunAtLoad only; fires once per boot." Task 3's plist-template snippet below still shows the original `LaunchEvents` block for historical traceability; the committed template reflects the amended design.
+
 **Target machine:** MIMOLETTE (Apple Silicon Mac Mini, macOS 26.4.1). **All test-phase tasks must run on MIMOLETTE itself.** Code-writing tasks can be done anywhere but the branch must be committed and pushed before running on-target if executed from elsewhere.
 
 ---

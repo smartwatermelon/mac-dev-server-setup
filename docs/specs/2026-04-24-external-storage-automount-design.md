@@ -5,6 +5,29 @@
 **Date:** 2026-04-24
 **Target machine:** MIMOLETTE (Apple Silicon Mac Mini, macOS 26.4.1)
 
+## Design Note — 2026-04-24 (post-Phase-4 amendment)
+
+The original design used `LaunchEvents → com.apple.iokit.matching` on
+`IOProviderClass=AppleAPFSVolume` + the volume UUID as a secondary trigger
+alongside `RunAtLoad`. Phase 4 testing on MIMOLETTE revealed that launchd
+treats the continued presence of a matching IOKit object as a continuously-
+firing event and re-spawns the helper every ~30 seconds (throttled by
+`minimum runtime`) for the entire uptime of the session. With our idempotent
+"already mounted" early-exit, each invocation is cheap, but the log growth
+(~400 bytes × 2,880 invocations/day) is ~400 MB/year of noise for no
+operational benefit.
+
+Since the MIMOLETTE SSD lives in a permanently-attached Thunderbolt dock
+(see Non-Goals — hot-plug detection is not needed), the `LaunchEvents`
+block has been removed. The daemon now fires once at boot via `RunAtLoad`
+and stays dormant until next reboot. Hot-plug would require a manual
+`launchctl kickstart` or a reboot.
+
+All references below to "IOKit match event" and "LaunchEvents" reflect the
+original design. They are preserved for historical traceability and because
+the concurrency / idempotency analysis they motivated is still relevant at
+boot (RunAtLoad alone can race with other things).
+
 ## Problem Statement
 
 The development environment on MIMOLETTE — dotfiles, claude-config,

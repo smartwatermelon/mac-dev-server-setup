@@ -13,19 +13,25 @@
   <key>RunAtLoad</key>
   <true/>
 
-  <key>LaunchEvents</key>
-  <dict>
-    <key>com.apple.iokit.matching</key>
-    <dict>
-      <key>com.mac-dev-server.external-storage-appeared</key>
-      <dict>
-        <key>IOProviderClass</key>
-        <string>AppleAPFSVolume</string>
-        <key>UUID</key>
-        <string>{{UUID}}</string>
-      </dict>
-    </dict>
-  </dict>
+  <!--
+    Intentionally NO LaunchEvents / IOKit matching.
+
+    An earlier design used IOProviderClass=AppleAPFSVolume + UUID to fire
+    the helper on volume enumeration. Empirically, launchd treats the
+    continued presence of a matching IOKit object as a continuously-
+    firing event and re-spawns the helper every 30s (throttled by
+    minimum runtime) for the lifetime of the session. That produces
+    ~430MB/year of log noise with zero benefit for our use case.
+
+    MIMOLETTE's SSD lives in a permanently-attached Thunderbolt dock,
+    so hot-plug detection is not needed. RunAtLoad fires once at boot,
+    the helper mounts the volume, and the daemon stays dormant until
+    reboot. Cable re-seat during uptime would require a manual
+    `launchctl kickstart system/com.mac-dev-server.automount-external-storage`
+    or a reboot.
+
+    See docs/specs/2026-04-24-external-storage-automount-design.md.
+  -->
 
   <key>StandardOutPath</key>
   <string>/var/log/mount-external-storage.log</string>
