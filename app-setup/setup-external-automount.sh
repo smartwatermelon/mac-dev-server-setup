@@ -222,6 +222,67 @@ do_dry_run() {
   printf '      EXTERNAL_STORAGE_UUID=%s\n' "${uuid}"
 }
 
+# --- install-only (files, no launchctl) ---
+_INSTALL_TMPDIR=''
+
+_cleanup_install() { [[ -n "${_INSTALL_TMPDIR}" ]] && rm -rf "${_INSTALL_TMPDIR}"; }
+
+do_install_only() {
+  local uuid="$1"
+  local volume="$2"
+
+  _INSTALL_TMPDIR="$(mktemp -d -t automount-install)"
+  trap '_cleanup_install' RETURN
+
+  render_template "${TMPL_PLIST}" "${uuid}" "${volume}" >"${_INSTALL_TMPDIR}/rendered.plist"
+  render_template "${TMPL_HELPER}" "${uuid}" "${volume}" >"${_INSTALL_TMPDIR}/rendered.sh"
+  cp "${TMPL_BANNER}" "${_INSTALL_TMPDIR}/rendered-banner.sh"
+
+  validate_plist "${_INSTALL_TMPDIR}/rendered.plist"
+  validate_script "${_INSTALL_TMPDIR}/rendered.sh"
+  validate_script "${_INSTALL_TMPDIR}/rendered-banner.sh"
+
+  show_log "all renders pass static validation; installing"
+
+  # Support directory
+  sudo /bin/mkdir -p "${TARGET_SUPPORT_DIR}"
+  sudo /usr/sbin/chown root:wheel "${TARGET_SUPPORT_DIR}"
+  sudo /bin/chmod 0755 "${TARGET_SUPPORT_DIR}"
+
+  # Helper script
+  sudo /usr/bin/install -o root -g wheel -m 0755 \
+    "${_INSTALL_TMPDIR}/rendered.sh" "${TARGET_HELPER}"
+  show_log "installed ${TARGET_HELPER}"
+
+  # automount.conf
+  local conf_tmp="${_INSTALL_TMPDIR}/automount.conf"
+  {
+    printf 'EXTERNAL_STORAGE_VOLUME=%s\n' "${volume}"
+    printf 'EXTERNAL_STORAGE_UUID=%s\n' "${uuid}"
+  } >"${conf_tmp}"
+  sudo /usr/bin/install -o root -g wheel -m 0644 \
+    "${conf_tmp}" "${TARGET_CONF}"
+  show_log "installed ${TARGET_CONF}"
+
+  # LaunchDaemon plist
+  sudo /usr/bin/install -o root -g wheel -m 0644 \
+    "${_INSTALL_TMPDIR}/rendered.plist" "${TARGET_PLIST}"
+  show_log "installed ${TARGET_PLIST}"
+
+  # /etc/profile banner block (idempotent insert)
+  if grep -qF "${PROFILE_BEGIN}" "${TARGET_PROFILE}"; then
+    show_log "/etc/profile banner block already present; leaving unchanged"
+  else
+    local profile_new="${_INSTALL_TMPDIR}/profile.new"
+    cat "${TARGET_PROFILE}" >"${profile_new}"
+    echo >>"${profile_new}"
+    cat "${_INSTALL_TMPDIR}/rendered-banner.sh" >>"${profile_new}"
+    sudo /usr/bin/install -o root -g wheel -m 0444 \
+      "${profile_new}" "${TARGET_PROFILE}"
+    show_log "appended banner block to ${TARGET_PROFILE}"
+  fi
+}
+
 # --- dispatch (expanded in Task 7/8/9) ---
 main() {
   load_config
@@ -234,7 +295,7 @@ main() {
 
   case "${MODE}" in
     dry-run) do_dry_run "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
-    install-only) show_log "install-only mode (not yet implemented; see Task 7)" ;;
+    install-only) do_install_only "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
     install) show_log "install mode (not yet implemented; see Task 8)" ;;
     uninstall) show_log "uninstall mode (not yet implemented; see Task 9)" ;;
     *)
