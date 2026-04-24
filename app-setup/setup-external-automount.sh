@@ -183,7 +183,46 @@ validate_script() {
   fi
 }
 
-# --- dispatch (placeholder; expanded in Task 6/7/8/9) ---
+# --- dry-run ---
+_DRY_RUN_TMPDIR=''
+
+_cleanup_dry_run() { [[ -n "${_DRY_RUN_TMPDIR}" ]] && rm -rf "${_DRY_RUN_TMPDIR}"; }
+
+do_dry_run() {
+  local uuid="$1"
+  local volume="$2"
+
+  _DRY_RUN_TMPDIR="$(mktemp -d -t automount-dryrun)"
+  trap '_cleanup_dry_run' RETURN
+
+  render_template "${TMPL_PLIST}" "${uuid}" "${volume}" >"${_DRY_RUN_TMPDIR}/rendered.plist"
+  render_template "${TMPL_HELPER}" "${uuid}" "${volume}" >"${_DRY_RUN_TMPDIR}/rendered.sh"
+  cp "${TMPL_BANNER}" "${_DRY_RUN_TMPDIR}/rendered-banner.sh"
+
+  validate_plist "${_DRY_RUN_TMPDIR}/rendered.plist"
+  validate_script "${_DRY_RUN_TMPDIR}/rendered.sh"
+  validate_script "${_DRY_RUN_TMPDIR}/rendered-banner.sh"
+
+  show_log "dry-run: all renders pass static validation"
+  echo
+  show_plan "would install (root:wheel 0644):"
+  show_plan "   ${TARGET_PLIST}"
+  show_plan "would install (root:wheel 0755):"
+  show_plan "   ${TARGET_HELPER}"
+  show_plan "would install (root:wheel 0644):"
+  show_plan "   ${TARGET_CONF}"
+  show_plan "would append BEGIN/END block to ${TARGET_PROFILE}"
+  show_plan "would run: sudo launchctl bootstrap system ${TARGET_PLIST}"
+  echo
+  show_plan "rendered plist:"
+  sed 's/^/      /' "${_DRY_RUN_TMPDIR}/rendered.plist"
+  echo
+  show_plan "rendered automount.conf contents:"
+  printf '      EXTERNAL_STORAGE_VOLUME=%s\n' "${volume}"
+  printf '      EXTERNAL_STORAGE_UUID=%s\n' "${uuid}"
+}
+
+# --- dispatch (expanded in Task 7/8/9) ---
 main() {
   load_config
   verify_on_target
@@ -194,7 +233,7 @@ main() {
   show_log "discovered UUID: ${uuid}"
 
   case "${MODE}" in
-    dry-run) show_log "dry-run mode (not yet implemented; see Task 6)" ;;
+    dry-run) do_dry_run "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
     install-only) show_log "install-only mode (not yet implemented; see Task 7)" ;;
     install) show_log "install mode (not yet implemented; see Task 8)" ;;
     uninstall) show_log "uninstall mode (not yet implemented; see Task 9)" ;;
