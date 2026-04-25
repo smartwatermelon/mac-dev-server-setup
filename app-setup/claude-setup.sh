@@ -314,8 +314,10 @@ main() {
         else
           local plist_name="com.headroom.proxy.plist"
           local plist_dest="${HOME}/Library/LaunchAgents/${plist_name}"
-          local gui_domain
-          gui_domain="gui/$(id -u)"
+          # Headless build server: no GUI login on the target, so the agent must
+          # load into the Background session (created on ssh login), not Aqua.
+          local user_domain
+          user_domain="user/$(id -u)"
           mkdir -p "${HOME}/Library/Logs/headroom"
           cat >"${plist_dest}" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -324,6 +326,8 @@ main() {
 <dict>
     <key>Label</key>
     <string>com.headroom.proxy</string>
+    <key>LimitLoadToSessionType</key>
+    <string>Background</string>
     <key>ProgramArguments</key>
     <array>
         <string>${headroom_bin}</string>
@@ -355,8 +359,8 @@ main() {
 </dict>
 </plist>
 PLIST
-          launchctl bootout "${gui_domain}/com.headroom.proxy" 2>/dev/null || true
-          launchctl bootstrap "${gui_domain}" "${plist_dest}" 2>>"${LOG_FILE}"
+          launchctl bootout "${user_domain}/com.headroom.proxy" 2>/dev/null || true
+          launchctl bootstrap "${user_domain}" "${plist_dest}" 2>>"${LOG_FILE}"
           show_log "OK: headroom proxy LaunchAgent installed and loaded (port ${proxy_port})"
         fi
       else
