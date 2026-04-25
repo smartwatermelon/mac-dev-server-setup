@@ -128,6 +128,14 @@ discover_uuid() {
     exit 1
   fi
 
+  # Defense-in-depth: the UUID is substituted verbatim into the plist's
+  # <string> value, which /bin/sh then word-splits. Reject anything that
+  # isn't a bog-standard APFS UUID.
+  if [[ ! "${uuid}" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
+    show_err "VolumeUUID does not match expected format: ${uuid}"
+    exit 1
+  fi
+
   printf '%s' "${uuid}"
 }
 
@@ -261,15 +269,35 @@ do_uninstall() {
 
   if [[ -f "${LEGACY_PROFILE}" ]] \
     && grep -qF "${LEGACY_PROFILE_BEGIN}" "${LEGACY_PROFILE}"; then
-    local tmpfile
-    tmpfile="$(mktemp -t profile-new)"
-    sudo /usr/bin/sed \
-      -e "\\|${LEGACY_PROFILE_BEGIN}|,\\|${LEGACY_PROFILE_END}|d" \
-      "${LEGACY_PROFILE}" | tee "${tmpfile}" >/dev/null
-    sudo /usr/bin/install -o root -g wheel -m 0444 \
-      "${tmpfile}" "${LEGACY_PROFILE}"
-    rm -f "${tmpfile}"
-    show_log "removed legacy banner block from ${LEGACY_PROFILE}"
+    if ! grep -qF "${LEGACY_PROFILE_END}" "${LEGACY_PROFILE}"; then
+      show_err "${LEGACY_PROFILE} contains BEGIN marker but no END marker;"
+      show_err "refusing to sed — BSD sed would delete BEGIN-to-EOF."
+      show_err "inspect and clean ${LEGACY_PROFILE} by hand."
+    else
+      local tmpfile backup orig_bytes new_bytes
+      tmpfile="$(mktemp -t profile-new)"
+      backup="${LEGACY_PROFILE}.automount-uninstall.bak.$(date +%Y%m%d-%H%M%S)"
+      orig_bytes="$(wc -c <"${LEGACY_PROFILE}")"
+      sudo /bin/cp -p "${LEGACY_PROFILE}" "${backup}"
+      sudo /usr/bin/sed \
+        -e "\\|${LEGACY_PROFILE_BEGIN}|,\\|${LEGACY_PROFILE_END}|d" \
+        "${LEGACY_PROFILE}" | tee "${tmpfile}" >/dev/null
+      new_bytes="$(wc -c <"${tmpfile}")"
+      # Banner block is ~600 bytes; anything shrinking more than 2KB is
+      # suspicious and we bail rather than overwrite.
+      if ((orig_bytes - new_bytes > 2048)); then
+        show_err "sed output shrank by $((orig_bytes - new_bytes)) bytes;"
+        show_err "expected ~600. refusing to overwrite ${LEGACY_PROFILE}."
+        show_err "backup preserved at ${backup}"
+        rm -f "${tmpfile}"
+      else
+        sudo /usr/bin/install -o root -g wheel -m 0444 \
+          "${tmpfile}" "${LEGACY_PROFILE}"
+        rm -f "${tmpfile}"
+        show_log "removed legacy banner block from ${LEGACY_PROFILE}"
+        show_log "backup at ${backup}"
+      fi
+    fi
   fi
 
   sudo /bin/rm -f "${LEGACY_FAILED_FLAG}"
