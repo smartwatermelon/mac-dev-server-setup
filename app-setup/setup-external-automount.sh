@@ -81,7 +81,10 @@ load_config() {
   # shellcheck source=/dev/null
   source "${conf}"
   : "${SERVER_NAME:?SERVER_NAME not set in ${conf}}"
-  : "${EXTERNAL_STORAGE_VOLUME:?EXTERNAL_STORAGE_VOLUME not set in ${conf}}"
+  # EXTERNAL_STORAGE_VOLUME is optional — empty means "no external storage on
+  # this target, skip automount setup entirely." Handled by main() below.
+  # Mirrors storage-setup.sh:157-161.
+  EXTERNAL_STORAGE_VOLUME="${EXTERNAL_STORAGE_VOLUME:-}"
 }
 
 # --- hostname guard ---
@@ -308,6 +311,19 @@ do_uninstall() {
 # --- dispatch ---
 main() {
   load_config
+
+  # Graceful skip when no external volume configured. Run before the hostname
+  # guard and uninstall branch so this exits 0 (not 1) on targets that don't
+  # use external storage — prevents run-app-setup.sh step 2 from failing on
+  # every invocation when the config.conf default (empty) is left in place.
+  # Uninstall is exempted so operators can still clean up legacy artifacts
+  # even if the config was later blanked out.
+  if [[ -z "${EXTERNAL_STORAGE_VOLUME}" && "${MODE}" != 'uninstall' ]]; then
+    show_log "EXTERNAL_STORAGE_VOLUME not configured — skipping automount setup"
+    show_log "Set EXTERNAL_STORAGE_VOLUME in config.conf to enable"
+    return 0
+  fi
+
   verify_on_target
 
   if [[ "${MODE}" == 'uninstall' ]]; then
