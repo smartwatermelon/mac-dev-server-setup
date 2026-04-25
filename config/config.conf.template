@@ -20,9 +20,14 @@ ANDROID_SDK_VERSION="34"
 NODE_VERSION="lts"
 XCODE_VERSION=""  # Empty = latest from App Store
 
-# External storage (optional — leave empty to skip)
-# Mount point of external drive for workspaces, simulators, and caches
+# External storage for dev artifacts (Workspaces, simulators, caches).
+# Leave blank to skip storage-setup.sh and external-storage automount.
 EXTERNAL_STORAGE_VOLUME=""
+
+# APFS volume UUID for automount. Auto-discovered by
+# setup-external-automount.sh if left blank. Find manually with:
+#   diskutil info -plist "<volume-name>" | plutil -extract VolumeUUID raw -
+EXTERNAL_STORAGE_UUID=""
 
 # Claude Code (optional — leave empty to skip)
 CLAUDE_WRAPPER_REPO=""
