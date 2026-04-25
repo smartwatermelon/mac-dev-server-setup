@@ -315,10 +315,21 @@ main() {
         # process as the install user so logs and pipx-managed binaries in the
         # user's home stay accessible.
         local proxy_port=8787
+        local plist_label="com.headroom.proxy"
+
+        # Remove legacy user-level LaunchAgent first — runs before the port
+        # check so a stale agent holding :8787 doesn't cause this run to skip
+        # the daemon install. No-op when the legacy plist isn't present.
+        local legacy_agent="${HOME}/Library/LaunchAgents/${plist_label}.plist"
+        if [[ -f "${legacy_agent}" ]]; then
+          launchctl bootout "user/$(id -u)/${plist_label}" 2>/dev/null || true
+          rm -f "${legacy_agent}"
+          show_log "Removed legacy headroom LaunchAgent (replaced by LaunchDaemon)"
+        fi
+
         if lsof -i ":${proxy_port}" -sTCP:LISTEN &>/dev/null; then
           show_log "WARNING: port ${proxy_port} already in use — skipping headroom proxy LaunchDaemon"
         else
-          local plist_label="com.headroom.proxy"
           local plist_dest="/Library/LaunchDaemons/${plist_label}.plist"
           local plist_tmp
           plist_tmp="$(mktemp -t headroom-proxy.plist.XXXXXX)"
@@ -327,15 +338,6 @@ main() {
           local group_name
           group_name="$(id -gn)"
           mkdir -p "${HOME}/Library/Logs/headroom"
-
-          # Remove legacy user-level LaunchAgent if a previous run of this
-          # script installed one. Bootout first to release port 8787.
-          local legacy_agent="${HOME}/Library/LaunchAgents/${plist_label}.plist"
-          if [[ -f "${legacy_agent}" ]]; then
-            launchctl bootout "user/$(id -u)/${plist_label}" 2>/dev/null || true
-            rm -f "${legacy_agent}"
-            show_log "Removed legacy headroom LaunchAgent (replaced by LaunchDaemon)"
-          fi
 
           cat >"${plist_tmp}" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
