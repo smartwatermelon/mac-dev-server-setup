@@ -307,27 +307,47 @@ main() {
         "${claude_cmd}" mcp add headroom -s user -- "${headroom_bin}" mcp serve >>"${LOG_FILE}" 2>&1 || add_exit=$?
         check_success "${add_exit}" "Add headroom MCP (global)" || true
 
-        # Install headroom proxy LaunchAgent (provides ANTHROPIC_BASE_URL proxy)
+        # Install headroom proxy LaunchDaemon (provides ANTHROPIC_BASE_URL proxy)
+        # Daemon (not Agent) because the target is a headless build server: no
+        # GUI login means user-level LaunchAgents never auto-load on macOS, even
+        # with LimitLoadToSessionType=Background. Daemons fire at boot in the
+        # system domain regardless of session state. UserName/GroupName run the
+        # process as the install user so logs and pipx-managed binaries in the
+        # user's home stay accessible.
         local proxy_port=8787
         if lsof -i ":${proxy_port}" -sTCP:LISTEN &>/dev/null; then
-          show_log "WARNING: port ${proxy_port} already in use — skipping headroom proxy LaunchAgent"
+          show_log "WARNING: port ${proxy_port} already in use — skipping headroom proxy LaunchDaemon"
         else
-          local plist_name="com.headroom.proxy.plist"
-          local plist_dest="${HOME}/Library/LaunchAgents/${plist_name}"
-          # Headless build server: no GUI login on the target, so the agent must
-          # load into the Background session (created on ssh login), not Aqua.
-          local user_domain
-          user_domain="user/$(id -u)"
+          local plist_label="com.headroom.proxy"
+          local plist_dest="/Library/LaunchDaemons/${plist_label}.plist"
+          local plist_tmp
+          plist_tmp="$(mktemp -t headroom-proxy.plist.XXXXXX)"
+          local user_name
+          user_name="$(id -un)"
+          local group_name
+          group_name="$(id -gn)"
           mkdir -p "${HOME}/Library/Logs/headroom"
-          cat >"${plist_dest}" <<PLIST
+
+          # Remove legacy user-level LaunchAgent if a previous run of this
+          # script installed one. Bootout first to release port 8787.
+          local legacy_agent="${HOME}/Library/LaunchAgents/${plist_label}.plist"
+          if [[ -f "${legacy_agent}" ]]; then
+            launchctl bootout "user/$(id -u)/${plist_label}" 2>/dev/null || true
+            rm -f "${legacy_agent}"
+            show_log "Removed legacy headroom LaunchAgent (replaced by LaunchDaemon)"
+          fi
+
+          cat >"${plist_tmp}" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.headroom.proxy</string>
-    <key>LimitLoadToSessionType</key>
-    <string>Background</string>
+    <string>${plist_label}</string>
+    <key>UserName</key>
+    <string>${user_name}</string>
+    <key>GroupName</key>
+    <string>${group_name}</string>
     <key>ProgramArguments</key>
     <array>
         <string>${headroom_bin}</string>
@@ -341,6 +361,8 @@ main() {
     <dict>
         <key>HEADROOM_PROXY_PORT</key>
         <string>${proxy_port}</string>
+        <key>HOME</key>
+        <string>${HOME}</string>
     </dict>
     <key>WorkingDirectory</key>
     <string>${HOME}</string>
@@ -359,9 +381,23 @@ main() {
 </dict>
 </plist>
 PLIST
-          launchctl bootout "${user_domain}/com.headroom.proxy" 2>/dev/null || true
-          launchctl bootstrap "${user_domain}" "${plist_dest}" 2>>"${LOG_FILE}"
-          show_log "OK: headroom proxy LaunchAgent installed and loaded (port ${proxy_port})"
+          if ! plutil -lint "${plist_tmp}" >>"${LOG_FILE}" 2>&1; then
+            collect_error "headroom proxy plist failed plutil -lint"
+            rm -f "${plist_tmp}"
+          else
+            sudo /bin/launchctl bootout "system/${plist_label}" 2>/dev/null || true
+            if ! sudo /usr/bin/install -o root -g wheel -m 0644 "${plist_tmp}" "${plist_dest}" 2>>"${LOG_FILE}"; then
+              collect_error "headroom proxy plist install failed"
+              rm -f "${plist_tmp}"
+            else
+              rm -f "${plist_tmp}"
+              if sudo /bin/launchctl bootstrap system "${plist_dest}" 2>>"${LOG_FILE}"; then
+                show_log "OK: headroom proxy LaunchDaemon installed and loaded (port ${proxy_port})"
+              else
+                collect_error "headroom proxy LaunchDaemon bootstrap failed"
+              fi
+            fi
+          fi
         fi
       else
         collect_error "headroom-ai installation failed (pipx exit ${pipx_exit})"
