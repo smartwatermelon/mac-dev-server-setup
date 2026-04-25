@@ -6,9 +6,9 @@
 # the dev environment is SSH-accessible without a macOS GUI login.
 #
 # Flags:
-#   --dry-run       Show what would change; no writes to /Library/ or /etc/
+#   --dry-run       Show what would change; no writes to /Library/
 #   --install-only  Install files but do not launchctl bootstrap
-#   --uninstall     Remove the daemon and all installed files
+#   --uninstall     Remove the daemon and installed files (incl. legacy)
 #
 # Part of mac-dev-server-setup. See:
 #   docs/specs/2026-04-24-external-storage-automount-design.md
@@ -25,22 +25,19 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 readonly REPO_ROOT
 readonly TEMPLATES_DIR="${SCRIPT_DIR}/templates"
 
-# Target install paths
+# Target install paths (current design)
 readonly TARGET_PLIST='/Library/LaunchDaemons/com.mac-dev-server.automount-external-storage.plist'
-readonly TARGET_SUPPORT_DIR='/Library/Application Support/mac-dev-server'
-readonly TARGET_HELPER="${TARGET_SUPPORT_DIR}/mount-external-storage.sh"
-readonly TARGET_CONF="${TARGET_SUPPORT_DIR}/automount.conf"
-readonly TARGET_PROFILE='/etc/profile'
 readonly LAUNCHD_LABEL='com.mac-dev-server.automount-external-storage'
 
-# Template paths
+# Template path
 readonly TMPL_PLIST="${TEMPLATES_DIR}/com.mac-dev-server.automount-external-storage.plist.template"
-readonly TMPL_HELPER="${TEMPLATES_DIR}/mount-external-storage.sh.template"
-readonly TMPL_BANNER="${TEMPLATES_DIR}/etc-profile-banner.sh.template"
 
-# Marker strings for /etc/profile idempotent insert
-readonly PROFILE_BEGIN='# BEGIN mac-dev-server-automount-banner'
-readonly PROFILE_END='# END mac-dev-server-automount-banner'
+# Legacy install paths (previous design — kept only for defensive uninstall cleanup)
+readonly LEGACY_SUPPORT_DIR='/Library/Application Support/mac-dev-server'
+readonly LEGACY_PROFILE='/etc/profile'
+readonly LEGACY_PROFILE_BEGIN='# BEGIN mac-dev-server-automount-banner'
+readonly LEGACY_PROFILE_END='# END mac-dev-server-automount-banner'
+readonly LEGACY_FAILED_FLAG='/var/run/mount-external-storage.FAILED'
 
 # --- arg parsing ---
 MODE='install' # install | dry-run | install-only | uninstall
@@ -50,7 +47,7 @@ while [[ $# -gt 0 ]]; do
     --install-only) MODE='install-only' ;;
     --uninstall) MODE='uninstall' ;;
     -h | --help)
-      sed -n '2,15p' "$0"
+      sed -n '2,17p' "$0"
       exit 0
       ;;
     *)
@@ -100,31 +97,13 @@ verify_on_target() {
 }
 
 # --- prerequisite check ---
-# Verifies that all required template files exist and target path constants are
-# consistent.  Fails fast before any writes.
 check_prerequisites() {
-  local missing=0
-
-  for tmpl in "${TMPL_PLIST}" "${TMPL_HELPER}" "${TMPL_BANNER}"; do
-    if [[ ! -f "${tmpl}" ]]; then
-      show_err "template not found: ${tmpl}"
-      missing=1
-    fi
-  done
-
-  # Log target paths so operators can confirm them at a glance.
-  show_log "target plist:      ${TARGET_PLIST}"
-  show_log "target helper:     ${TARGET_HELPER}"
-  show_log "target conf:       ${TARGET_CONF}"
-  show_log "target profile:    ${TARGET_PROFILE}"
-  show_log "launchd label:     ${LAUNCHD_LABEL}"
-  show_log "profile begin tag: ${PROFILE_BEGIN}"
-  show_log "profile end tag:   ${PROFILE_END}"
-
-  if [[ "${missing}" -ne 0 ]]; then
-    show_err "one or more templates missing; cannot continue"
+  if [[ ! -f "${TMPL_PLIST}" ]]; then
+    show_err "template not found: ${TMPL_PLIST}"
     exit 1
   fi
+  show_log "target plist:  ${TARGET_PLIST}"
+  show_log "launchd label: ${LAUNCHD_LABEL}"
 }
 
 # --- UUID discovery ---
@@ -153,13 +132,9 @@ discover_uuid() {
 }
 
 # --- template rendering ---
-render_template() {
-  local tmpl="$1"
-  local uuid="$2"
-  local volume="$3"
-  sed -e "s|{{UUID}}|${uuid}|g" \
-    -e "s|{{VOLUME}}|${volume}|g" \
-    "${tmpl}"
+render_plist() {
+  local uuid="$1"
+  sed -e "s|{{UUID}}|${uuid}|g" "${TMPL_PLIST}"
 }
 
 # --- static validation ---
@@ -171,116 +146,46 @@ validate_plist() {
   fi
 }
 
-validate_script() {
-  local file="$1"
-  if ! bash -n "${file}"; then
-    show_err "bash -n failed: ${file}"
-    return 1
-  fi
-  if ! shellcheck -S info "${file}"; then
-    show_err "shellcheck failed: ${file}"
-    return 1
-  fi
-}
-
 # --- dry-run ---
 _DRY_RUN_TMPDIR=''
-
 _cleanup_dry_run() { [[ -n "${_DRY_RUN_TMPDIR}" ]] && rm -rf "${_DRY_RUN_TMPDIR}"; }
 
 do_dry_run() {
   local uuid="$1"
-  local volume="$2"
 
   _DRY_RUN_TMPDIR="$(mktemp -d -t automount-dryrun)"
   trap '_cleanup_dry_run' RETURN
 
-  render_template "${TMPL_PLIST}" "${uuid}" "${volume}" >"${_DRY_RUN_TMPDIR}/rendered.plist"
-  render_template "${TMPL_HELPER}" "${uuid}" "${volume}" >"${_DRY_RUN_TMPDIR}/rendered.sh"
-  cp "${TMPL_BANNER}" "${_DRY_RUN_TMPDIR}/rendered-banner.sh"
-
+  render_plist "${uuid}" >"${_DRY_RUN_TMPDIR}/rendered.plist"
   validate_plist "${_DRY_RUN_TMPDIR}/rendered.plist"
-  validate_script "${_DRY_RUN_TMPDIR}/rendered.sh"
-  validate_script "${_DRY_RUN_TMPDIR}/rendered-banner.sh"
 
-  show_log "dry-run: all renders pass static validation"
+  show_log "dry-run: rendered plist passes plutil -lint"
   echo
   show_plan "would install (root:wheel 0644):"
   show_plan "   ${TARGET_PLIST}"
-  show_plan "would install (root:wheel 0755):"
-  show_plan "   ${TARGET_HELPER}"
-  show_plan "would install (root:wheel 0644):"
-  show_plan "   ${TARGET_CONF}"
-  show_plan "would append BEGIN/END block to ${TARGET_PROFILE}"
   show_plan "would run: sudo launchctl bootstrap system ${TARGET_PLIST}"
   echo
   show_plan "rendered plist:"
   sed 's/^/      /' "${_DRY_RUN_TMPDIR}/rendered.plist"
-  echo
-  show_plan "rendered automount.conf contents:"
-  printf '      EXTERNAL_STORAGE_VOLUME=%s\n' "${volume}"
-  printf '      EXTERNAL_STORAGE_UUID=%s\n' "${uuid}"
 }
 
 # --- install-only (files, no launchctl) ---
 _INSTALL_TMPDIR=''
-
 _cleanup_install() { [[ -n "${_INSTALL_TMPDIR}" ]] && rm -rf "${_INSTALL_TMPDIR}"; }
 
 do_install_only() {
   local uuid="$1"
-  local volume="$2"
 
   _INSTALL_TMPDIR="$(mktemp -d -t automount-install)"
   trap '_cleanup_install' RETURN
 
-  render_template "${TMPL_PLIST}" "${uuid}" "${volume}" >"${_INSTALL_TMPDIR}/rendered.plist"
-  render_template "${TMPL_HELPER}" "${uuid}" "${volume}" >"${_INSTALL_TMPDIR}/rendered.sh"
-  cp "${TMPL_BANNER}" "${_INSTALL_TMPDIR}/rendered-banner.sh"
-
+  render_plist "${uuid}" >"${_INSTALL_TMPDIR}/rendered.plist"
   validate_plist "${_INSTALL_TMPDIR}/rendered.plist"
-  validate_script "${_INSTALL_TMPDIR}/rendered.sh"
-  validate_script "${_INSTALL_TMPDIR}/rendered-banner.sh"
+  show_log "rendered plist passes plutil -lint; installing"
 
-  show_log "all renders pass static validation; installing"
-
-  # Support directory
-  sudo /bin/mkdir -p "${TARGET_SUPPORT_DIR}"
-  sudo /usr/sbin/chown root:wheel "${TARGET_SUPPORT_DIR}"
-  sudo /bin/chmod 0755 "${TARGET_SUPPORT_DIR}"
-
-  # Helper script
-  sudo /usr/bin/install -o root -g wheel -m 0755 \
-    "${_INSTALL_TMPDIR}/rendered.sh" "${TARGET_HELPER}"
-  show_log "installed ${TARGET_HELPER}"
-
-  # automount.conf
-  local conf_tmp="${_INSTALL_TMPDIR}/automount.conf"
-  {
-    printf 'EXTERNAL_STORAGE_VOLUME=%s\n' "${volume}"
-    printf 'EXTERNAL_STORAGE_UUID=%s\n' "${uuid}"
-  } >"${conf_tmp}"
-  sudo /usr/bin/install -o root -g wheel -m 0644 \
-    "${conf_tmp}" "${TARGET_CONF}"
-  show_log "installed ${TARGET_CONF}"
-
-  # LaunchDaemon plist
   sudo /usr/bin/install -o root -g wheel -m 0644 \
     "${_INSTALL_TMPDIR}/rendered.plist" "${TARGET_PLIST}"
   show_log "installed ${TARGET_PLIST}"
-
-  # /etc/profile banner block (idempotent insert)
-  if grep -qF "${PROFILE_BEGIN}" "${TARGET_PROFILE}"; then
-    show_log "/etc/profile banner block already present; leaving unchanged"
-  else
-    local profile_new="${_INSTALL_TMPDIR}/profile.new"
-    cat "${TARGET_PROFILE}" >"${profile_new}"
-    echo >>"${profile_new}"
-    cat "${_INSTALL_TMPDIR}/rendered-banner.sh" >>"${profile_new}"
-    sudo /usr/bin/install -o root -g wheel -m 0444 \
-      "${profile_new}" "${TARGET_PROFILE}"
-    show_log "appended banner block to ${TARGET_PROFILE}"
-  fi
 }
 
 # --- rollback on bootstrap failure ---
@@ -294,9 +199,8 @@ rollback_plist() {
 # --- full install: file copy + launchctl bootstrap ---
 do_install() {
   local uuid="$1"
-  local volume="$2"
 
-  do_install_only "${uuid}" "${volume}"
+  do_install_only "${uuid}"
 
   # If already loaded (from a prior run), bootout first to pick up new plist.
   if sudo /bin/launchctl list 2>/dev/null | grep -q "${LAUNCHD_LABEL}"; then
@@ -319,23 +223,20 @@ do_install() {
   fi
   rm -f "${bootstrap_err}"
 
-  # Verify loaded
   if ! sudo /bin/launchctl list | grep -q "${LAUNCHD_LABEL}"; then
     show_err "daemon did not appear in launchctl list after bootstrap"
     rollback_plist
     exit 1
   fi
   show_log "daemon loaded: ${LAUNCHD_LABEL}"
-
   show_log "install complete"
-  show_log "next: run Phase 5 of the test plan (fdesetup authrestart) to verify boot behavior"
 }
 
-# --- uninstall ---
+# --- uninstall (removes current and any legacy artifacts) ---
 do_uninstall() {
   show_log "uninstalling"
 
-  # Bootout (tolerate not-loaded)
+  # Bootout current daemon (tolerate not-loaded).
   if sudo /bin/launchctl list 2>/dev/null | grep -q "${LAUNCHD_LABEL}"; then
     show_log "booting out ${LAUNCHD_LABEL}"
     sudo /bin/launchctl bootout system "${TARGET_PLIST}" || {
@@ -345,31 +246,33 @@ do_uninstall() {
     show_log "daemon not loaded; skipping bootout"
   fi
 
-  # Remove target files
+  # Remove current plist.
   if [[ -f "${TARGET_PLIST}" ]]; then
     sudo /bin/rm -f "${TARGET_PLIST}"
     show_log "removed ${TARGET_PLIST}"
   fi
-  if [[ -d "${TARGET_SUPPORT_DIR}" ]]; then
-    sudo /bin/rm -rf "${TARGET_SUPPORT_DIR}"
-    show_log "removed ${TARGET_SUPPORT_DIR}"
+
+  # Legacy cleanup: previous design installed a helper script, conf file,
+  # /etc/profile banner block, and a /var/run flag. Clear any stragglers.
+  if [[ -d "${LEGACY_SUPPORT_DIR}" ]]; then
+    sudo /bin/rm -rf "${LEGACY_SUPPORT_DIR}"
+    show_log "removed legacy ${LEGACY_SUPPORT_DIR}"
   fi
 
-  # Strip banner block from /etc/profile
-  if grep -qF "${PROFILE_BEGIN}" "${TARGET_PROFILE}"; then
+  if [[ -f "${LEGACY_PROFILE}" ]] \
+    && grep -qF "${LEGACY_PROFILE_BEGIN}" "${LEGACY_PROFILE}"; then
     local tmpfile
     tmpfile="$(mktemp -t profile-new)"
     sudo /usr/bin/sed \
-      -e "\\|${PROFILE_BEGIN}|,\\|${PROFILE_END}|d" \
-      "${TARGET_PROFILE}" | tee "${tmpfile}" >/dev/null
+      -e "\\|${LEGACY_PROFILE_BEGIN}|,\\|${LEGACY_PROFILE_END}|d" \
+      "${LEGACY_PROFILE}" | tee "${tmpfile}" >/dev/null
     sudo /usr/bin/install -o root -g wheel -m 0444 \
-      "${tmpfile}" "${TARGET_PROFILE}"
+      "${tmpfile}" "${LEGACY_PROFILE}"
     rm -f "${tmpfile}"
-    show_log "removed banner block from ${TARGET_PROFILE}"
+    show_log "removed legacy banner block from ${LEGACY_PROFILE}"
   fi
 
-  # Clear runtime flag, just in case
-  sudo /bin/rm -f /var/run/mount-external-storage.FAILED
+  sudo /bin/rm -f "${LEGACY_FAILED_FLAG}"
 
   show_log "uninstall complete"
 }
@@ -391,9 +294,9 @@ main() {
   show_log "discovered UUID: ${uuid}"
 
   case "${MODE}" in
-    dry-run) do_dry_run "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
-    install-only) do_install_only "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
-    install) do_install "${uuid}" "${EXTERNAL_STORAGE_VOLUME}" ;;
+    dry-run) do_dry_run "${uuid}" ;;
+    install-only) do_install_only "${uuid}" ;;
+    install) do_install "${uuid}" ;;
     *)
       show_err "unexpected MODE: ${MODE}"
       exit 1

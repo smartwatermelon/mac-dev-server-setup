@@ -1,9 +1,57 @@
 # Boot-Time Automount for External Development Storage
 
-**Status:** Design approved, awaiting implementation plan
+**Status:** Deployed; simplified post-deploy (see top Design Note)
 **Author:** Andrew Rich
 **Date:** 2026-04-24
 **Target machine:** MIMOLETTE (Apple Silicon Mac Mini, macOS 26.4.1)
+
+## Design Note — 2026-04-24 (post-deploy simplification)
+
+First reboot on MIMOLETTE exposed the boot race documented below in
+"Data Flow → Boot, SSD missing": launchd fires `RunAtLoad` at
+extremely-early PIDs (observed PID 349 on cold boot), ~12 seconds before
+Thunderbolt disk enumeration completes. The 10-second wait-loop in the
+helper script was too short; the script exited 1, loud-fail triggered,
+banner appeared on next login. The disk was fine — the timing was wrong.
+
+Two reactions to this could have been "extend the wait-loop" or "restore
+IOKit LaunchEvents with noise-suppression." Both preserve the existing
+machinery. Instead, we asked whether we needed the machinery at all.
+
+**Resolution: drop the helper script, the `/etc/profile` banner, and the
+`/var/run` failure flag entirely.** The plist now calls `/bin/sh -c`
+directly with an inline 6-attempt `for` loop invoking
+`diskutil mount <UUID>`, plus `KeepAlive { SuccessfulExit: false }` and
+`ThrottleInterval=3600`. launchd retries the daemon until success.
+
+Behavior:
+
+| Scenario | Outcome |
+|---|---|
+| Disk enumerated by t=0 (warm path) | `diskutil mount` succeeds first try → exit 0 → KeepAlive does not respawn |
+| Disk arrives within ~60s (boot race) | Inline loop catches it → exit 0 |
+| Disk genuinely missing | 6 attempts over 60s → exit 1 → `ThrottleInterval` = 1 hour between retries (~144 stderr lines/day in unified log, trivial) |
+| Disk yanked mid-uptime, then re-plugged | launchd does not auto-refire (last exit was 0). Manual `launchctl kickstart` or reboot required. Unchanged from the post-Phase-4 design. |
+
+Goal "Loud on failure" is dropped. Rationale: if the SSD doesn't mount,
+the operator will notice immediately via `~/Developer` symlinks pointing
+into a non-existent mount — every shell login, every repo command, every
+Claude wrapper invocation will fail visibly. The banner was
+belt-and-braces. We'll add it back if operational experience shows the
+implicit signal is insufficient.
+
+`setup-external-automount.sh` shrinks (drops helper-script template,
+banner template, `/etc/profile` editing, Application Support dir
+creation, automount.conf writer). `--uninstall` retains defensive cleanup
+of the legacy artifacts (support dir, profile banner block, `/var/run`
+flag) in case any target still has them.
+
+The sections below describe the *original* (pre-simplification) design
+and are preserved as historical record — the concurrency / idempotency
+analysis, failure-mode reasoning, and test-phase structure all remain
+instructive even though the specific components they describe are gone.
+For the current components, see the minimal plist template and
+`setup-external-automount.sh` in the repo.
 
 ## Design Note — 2026-04-24 (post-Phase-4 amendment)
 

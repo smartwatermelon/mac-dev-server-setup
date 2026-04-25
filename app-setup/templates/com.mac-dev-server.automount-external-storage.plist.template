@@ -7,36 +7,21 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/Library/Application Support/mac-dev-server/mount-external-storage.sh</string>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>for i in 1 2 3 4 5 6; do if /usr/sbin/diskutil mount {{UUID}}; then exit 0; fi; sleep 10; done; exit 1</string>
   </array>
 
   <key>RunAtLoad</key>
   <true/>
 
-  <!--
-    Intentionally NO LaunchEvents / IOKit matching.
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
 
-    An earlier design used IOProviderClass=AppleAPFSVolume + UUID to fire
-    the helper on volume enumeration. Empirically, launchd treats the
-    continued presence of a matching IOKit object as a continuously-
-    firing event and re-spawns the helper every 30s (throttled by
-    minimum runtime) for the lifetime of the session. That produces
-    ~430MB/year of log noise with zero benefit for our use case.
-
-    MIMOLETTE's SSD lives in a permanently-attached Thunderbolt dock,
-    so hot-plug detection is not needed. RunAtLoad fires once at boot,
-    the helper mounts the volume, and the daemon stays dormant until
-    reboot. Cable re-seat during uptime would require a manual
-    `launchctl kickstart system/com.mac-dev-server.automount-external-storage`
-    or a reboot.
-
-    See docs/specs/2026-04-24-external-storage-automount-design.md.
-  -->
-
-  <key>StandardOutPath</key>
-  <string>/var/log/mount-external-storage.log</string>
-
-  <key>StandardErrorPath</key>
-  <string>/var/log/mount-external-storage.log</string>
+  <key>ThrottleInterval</key>
+  <integer>3600</integer>
 </dict>
 </plist>
