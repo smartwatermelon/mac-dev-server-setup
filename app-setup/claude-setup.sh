@@ -99,6 +99,44 @@ check_success() {
   fi
 }
 
+# Headroom removed 2026-07-28 — see issue #55.
+# Teardown is idempotent and safe on machines that never had it.
+remove_headroom() {
+  local claude_cmd="$1"
+  local plist_label="com.headroom.proxy"
+
+  # System-domain LaunchDaemon (current layout)
+  if [[ -f "/Library/LaunchDaemons/${plist_label}.plist" ]]; then
+    if sudo /bin/launchctl bootout "system/${plist_label}" 2>>"${LOG_FILE}"; then
+      show_log "Removed headroom proxy LaunchDaemon"
+    else
+      show_log "WARNING: failed to bootout headroom proxy LaunchDaemon (may already be stopped)"
+    fi
+    if sudo rm -f "/Library/LaunchDaemons/${plist_label}.plist" 2>>"${LOG_FILE}"; then
+      show_log "Removed headroom proxy LaunchDaemon plist"
+    else
+      show_log "WARNING: failed to remove /Library/LaunchDaemons/${plist_label}.plist (sudo required)"
+    fi
+  fi
+
+  # User-domain LaunchAgent (legacy layout)
+  local legacy_agent="${HOME}/Library/LaunchAgents/${plist_label}.plist"
+  if [[ -f "${legacy_agent}" ]]; then
+    launchctl bootout "user/$(id -u)/${plist_label}" 2>/dev/null || true
+    rm -f "${legacy_agent}"
+    show_log "Removed legacy headroom proxy LaunchAgent"
+  fi
+
+  if command -v "${claude_cmd}" &>/dev/null || [[ -x "${claude_cmd}" ]]; then
+    "${claude_cmd}" mcp remove headroom -s user >>"${LOG_FILE}" 2>&1 || true
+  fi
+
+  if command -v pipx &>/dev/null && pipx list 2>/dev/null | grep -q headroom-ai; then
+    pipx uninstall headroom-ai >>"${LOG_FILE}" 2>&1 || true
+    show_log "Uninstalled headroom-ai"
+  fi
+}
+
 # Main execution
 main() {
   section "Claude Code CLI Installation"
@@ -275,138 +313,8 @@ main() {
       claude_cmd="${HOME}/.local/bin/claude"
     fi
 
-    # Install headroom (context compression MCP)
-    show_log "Installing headroom (context compression)..."
-    if command -v pipx &>/dev/null || [[ -x "/opt/homebrew/bin/pipx" ]]; then
-      local pipx_cmd="pipx"
-      command -v pipx &>/dev/null || pipx_cmd="/opt/homebrew/bin/pipx"
-
-      local pipx_exit=0
-      "${pipx_cmd}" install headroom-ai >>"${LOG_FILE}" 2>&1 || pipx_exit=$?
-      if [[ ${pipx_exit} -eq 0 ]]; then
-        # headroom needs the mcp SDK to function as a Claude Code MCP server
-        local inject_exit=0
-        "${pipx_cmd}" inject headroom-ai mcp >>"${LOG_FILE}" 2>&1 || inject_exit=$?
-        if [[ ${inject_exit} -ne 0 ]]; then
-          collect_error "Failed to inject mcp SDK into headroom-ai (required for MCP server)"
-        fi
-        # proxy dependencies (fastapi, uvicorn, httpx with h2)
-        "${pipx_cmd}" inject headroom-ai fastapi uvicorn >>"${LOG_FILE}" 2>&1 || true
-        "${pipx_cmd}" inject headroom-ai "httpx[http2]" --force >>"${LOG_FILE}" 2>&1 || true
-        show_log "OK: headroom-ai installed via pipx"
-
-        # Resolve absolute path for MCP config (pipx symlink may not be on PATH)
-        local headroom_bin
-        headroom_bin="$(command -v headroom 2>/dev/null || echo "${HOME}/.local/bin/headroom")"
-        if [[ ! -x "${headroom_bin}" ]]; then
-          collect_error "headroom binary not found or not executable at ${headroom_bin}"
-        fi
-
-        # Add headroom as Claude Code MCP server
-        local add_exit=0
-        "${claude_cmd}" mcp add headroom -s user -- "${headroom_bin}" mcp serve >>"${LOG_FILE}" 2>&1 || add_exit=$?
-        check_success "${add_exit}" "Add headroom MCP (global)" || true
-
-        # Install headroom proxy LaunchDaemon (provides ANTHROPIC_BASE_URL proxy)
-        # Daemon (not Agent) because the target is a headless build server: no
-        # GUI login means user-level LaunchAgents never auto-load on macOS, even
-        # with LimitLoadToSessionType=Background. Daemons fire at boot in the
-        # system domain regardless of session state. UserName/GroupName run the
-        # process as the install user so logs and pipx-managed binaries in the
-        # user's home stay accessible.
-        local proxy_port=8787
-        local plist_label="com.headroom.proxy"
-
-        # Remove legacy user-level LaunchAgent first — runs before the port
-        # check so a stale agent holding :8787 doesn't cause this run to skip
-        # the daemon install. No-op when the legacy plist isn't present.
-        local legacy_agent="${HOME}/Library/LaunchAgents/${plist_label}.plist"
-        if [[ -f "${legacy_agent}" ]]; then
-          launchctl bootout "user/$(id -u)/${plist_label}" 2>/dev/null || true
-          rm -f "${legacy_agent}"
-          show_log "Removed legacy headroom LaunchAgent (replaced by LaunchDaemon)"
-        fi
-
-        if lsof -i ":${proxy_port}" -sTCP:LISTEN &>/dev/null; then
-          show_log "WARNING: port ${proxy_port} already in use — skipping headroom proxy LaunchDaemon"
-        else
-          local plist_dest="/Library/LaunchDaemons/${plist_label}.plist"
-          local plist_tmp
-          plist_tmp="$(mktemp -t headroom-proxy.plist.XXXXXX)"
-          local user_name
-          user_name="$(id -un)"
-          local group_name
-          group_name="$(id -gn)"
-          mkdir -p "${HOME}/Library/Logs/headroom"
-
-          cat >"${plist_tmp}" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>${plist_label}</string>
-    <key>UserName</key>
-    <string>${user_name}</string>
-    <key>GroupName</key>
-    <string>${group_name}</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>${headroom_bin}</string>
-        <string>proxy</string>
-        <string>--host</string>
-        <string>127.0.0.1</string>
-        <string>--port</string>
-        <string>${proxy_port}</string>
-    </array>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>HEADROOM_PROXY_PORT</key>
-        <string>${proxy_port}</string>
-        <key>HOME</key>
-        <string>${HOME}</string>
-    </dict>
-    <key>WorkingDirectory</key>
-    <string>${HOME}</string>
-    <key>StandardOutPath</key>
-    <string>${HOME}/Library/Logs/headroom/proxy.log</string>
-    <key>StandardErrorPath</key>
-    <string>${HOME}/Library/Logs/headroom/proxy-error.log</string>
-    <key>KeepAlive</key>
-    <true/>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>ProcessType</key>
-    <string>Adaptive</string>
-    <key>ThrottleInterval</key>
-    <integer>10</integer>
-</dict>
-</plist>
-PLIST
-          if ! plutil -lint "${plist_tmp}" >>"${LOG_FILE}" 2>&1; then
-            collect_error "headroom proxy plist failed plutil -lint"
-            rm -f "${plist_tmp}"
-          else
-            sudo /bin/launchctl bootout "system/${plist_label}" 2>/dev/null || true
-            if ! sudo /usr/bin/install -o root -g wheel -m 0644 "${plist_tmp}" "${plist_dest}" 2>>"${LOG_FILE}"; then
-              collect_error "headroom proxy plist install failed"
-              rm -f "${plist_tmp}"
-            else
-              rm -f "${plist_tmp}"
-              if sudo /bin/launchctl bootstrap system "${plist_dest}" 2>>"${LOG_FILE}"; then
-                show_log "OK: headroom proxy LaunchDaemon installed and loaded (port ${proxy_port})"
-              else
-                collect_error "headroom proxy LaunchDaemon bootstrap failed"
-              fi
-            fi
-          fi
-        fi
-      else
-        collect_error "headroom-ai installation failed (pipx exit ${pipx_exit})"
-      fi
-    else
-      collect_error "pipx not found — cannot install headroom-ai"
-    fi
+    # Remove headroom (context compression MCP) — removed 2026-07-28, see issue #55.
+    remove_headroom "${claude_cmd}"
 
     # Add Context7 MCP (documentation lookup)
     local context7_key="${CONTEXT7_API_KEY:-}"
@@ -436,8 +344,6 @@ PLIST
       "superpowers-marketplace:obra/superpowers-marketplace"
       "claude-code-workflows:wshobson/agents"
       "smartwatermelon-marketplace:smartwatermelon/smartwatermelon-marketplace"
-      "claude-code-plugins:anthropics/claude-code"
-      "claude-plugins-official:anthropics/claude-plugins-official"
     )
 
     for entry in "${marketplaces[@]}"; do
@@ -457,13 +363,8 @@ PLIST
     local enabled_plugins=(
       "superpowers@superpowers-marketplace"
       "comprehensive-review@claude-code-workflows"
-      "tdd-workflows@claude-code-workflows"
-      "debugging-toolkit@claude-code-workflows"
-      "frontend-mobile-development@claude-code-workflows"
       "code-critic@smartwatermelon-marketplace"
-      "react-native-3d@smartwatermelon-marketplace"
       "ci-workflows@smartwatermelon-marketplace"
-      "frontend-design@claude-code-plugins"
     )
 
     for plugin in "${enabled_plugins[@]}"; do
@@ -567,7 +468,9 @@ PLIST
   section "Claude Setup Summary"
 
   if command -v claude &>/dev/null; then
-    show_log "Claude Code: $(claude --version 2>/dev/null || echo "installed")"
+    local claude_version
+    claude_version="$(claude --version 2>/dev/null)" || claude_version="installed"
+    show_log "Claude Code: ${claude_version}"
   else
     show_log "Claude Code: not in PATH"
   fi

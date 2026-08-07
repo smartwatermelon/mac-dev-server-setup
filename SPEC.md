@@ -59,7 +59,7 @@ Forked from [mac-server-setup](https://github.com/smartwatermelon/mac-server-set
 | Java (Azul Zulu or Temurin) | Android/Gradle requirement |
 | Dotfiles sync | Clone and link bash configuration repo |
 | Claude Code CLI | AI-assisted development |
-| Claude Code MCP servers | Context7 (docs), headroom (compression) globally; project-specific MCPs per-repo |
+| Claude Code MCP servers | Context7 (docs) globally; project-specific MCPs per-repo |
 | Post-push loop | CI monitoring via `/post-push-loop` — cross-repo: script in `claude-config`, hook in `dotfiles`, deps in `formulae.txt` |
 | GitHub CLI + SSH keys | Repository access (also required for post-push-loop `gh api` calls) |
 
@@ -231,9 +231,9 @@ Note: Xcode installed via App Store or mas CLI, not Homebrew cask.
    - Install Claude Code CLI
    - Clone claude-config repo (`~/.claude`)
    - Register plugin marketplaces (superpowers, claude-code-workflows,
-     smartwatermelon, claude-code-plugins, claude-plugins-official)
+     smartwatermelon)
    - Install plugins (superpowers, ci-workflows, code-critic, etc.)
-   - Setup MCP servers (Context7, headroom)
+   - Setup MCP servers (Context7)
    - Verify GitHub CLI authentication
    - Verify post-push-loop readiness
 6. Create `app-setup/storage-setup.sh`
@@ -303,8 +303,8 @@ Script should verify:
 - [ ] `npm --version` succeeds
 - [ ] Dotfiles linked and shell configured
 - [ ] Homebrew doctor passes
-- [ ] `claude mcp list` shows context7 and headroom connected
-- [ ] `claude plugins marketplace list` shows all 5 marketplaces
+- [ ] `claude mcp list` shows context7 connected
+- [ ] `claude plugins marketplace list` shows all 3 marketplaces
 - [ ] `claude plugins list` shows installed plugins
   (superpowers, ci-workflows, code-critic, etc.)
 - [ ] `claude auth login` completed
