@@ -16,7 +16,7 @@ MONITORING_EMAIL="your-email@example.com"
 
 # Development configuration
 DOTFILES_REPO="git@github.com:YOUR_USER/dotfiles.git"
-ANDROID_SDK_VERSION="34"
+ANDROID_SDK_VERSION="36"
 NODE_VERSION="lts"
 XCODE_VERSION=""  # Empty = latest from App Store
 

@@ -218,7 +218,8 @@ main() {
   for pkg in "${GLOBAL_PACKAGES[@]}"; do
     # Get the command name (first part before any @version)
     local cmd="${pkg%%@*}"
-    # Map package name to installed command name where they differ
+    # Map package name to installed command name where they differ.
+    # puppeteer is a library with no CLI binary; verify via node -e instead.
     case "${cmd}" in
       eas-cli) cmd="eas" ;;
       npm-check-updates) cmd="ncu" ;;
@@ -227,7 +228,13 @@ main() {
       *) ;;
     esac
 
-    if command -v "${cmd}" &>/dev/null; then
+    if [[ "${pkg}" == "puppeteer" ]]; then
+      if node -e "require('puppeteer')" &>/dev/null; then
+        show_log "OK: ${pkg} (installed)"
+      else
+        collect_error "${pkg} module not found after installation"
+      fi
+    elif command -v "${cmd}" &>/dev/null; then
       local pkg_version
       pkg_version="$("${cmd}" --version 2>/dev/null || echo "installed")"
       show_log "OK: ${pkg} (${pkg_version})"

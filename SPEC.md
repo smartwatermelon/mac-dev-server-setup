@@ -129,7 +129,7 @@ NAS_*                              # No NAS mounting
 
 ```bash
 DOTFILES_REPO="git@github.com:smartwatermelon/dotfiles.git"
-ANDROID_SDK_VERSION="34"           # Target Android SDK
+ANDROID_SDK_VERSION="36"           # Target Android SDK
 NODE_VERSION="lts"                 # Node.js version (or "20", "22", etc.)
 XCODE_VERSION=""                   # Empty = latest from App Store
 ```
