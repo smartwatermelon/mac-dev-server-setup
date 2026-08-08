@@ -56,7 +56,7 @@ HOSTNAME="${HOSTNAME_OVERRIDE:-${SERVER_NAME}}"
 HOSTNAME_LOWER="$(tr '[:upper:]' '[:lower:]' <<<"${HOSTNAME}")"
 
 # SDK version from config with default
-SDK_VERSION="${ANDROID_SDK_VERSION:-34}"
+SDK_VERSION="${ANDROID_SDK_VERSION:-36}"
 
 # Logging configuration
 LOG_DIR="${HOME}/.local/state"
