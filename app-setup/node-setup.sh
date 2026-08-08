@@ -99,6 +99,11 @@ check_success() {
 }
 
 # Global npm packages to install
+# NOTE: "n" (Node version manager) is intentionally included to match the
+# asiago reference build server (see issue #38, item 2). It's used by
+# downstream project preflight scripts to switch Node versions; on a box
+# where Node itself is Homebrew-managed, `n` is expected to remain unused
+# for that purpose to avoid it silently taking over /usr/local/bin/node.
 readonly -a GLOBAL_PACKAGES=(
   "eas-cli"
   "npm-check-updates"
@@ -229,7 +234,9 @@ main() {
     esac
 
     if [[ "${pkg}" == "puppeteer" ]]; then
-      if node -e "require('puppeteer')" &>/dev/null; then
+      # Global installs aren't on node's default require() path; point
+      # NODE_PATH at the global npm lib dir so require() can find it.
+      if NODE_PATH="${NPM_GLOBAL_DIR}/lib/node_modules" node -e "require('puppeteer')" &>/dev/null; then
         show_log "OK: ${pkg} (installed)"
       else
         collect_error "${pkg} module not found after installation"
