@@ -43,7 +43,7 @@ SSH_KEY_ITEM="SSH Keys"
 DOTFILES_REPO="git@github.com:smartwatermelon/dotfiles.git"
 
 # Android SDK platform version to install
-ANDROID_SDK_VERSION="34"
+ANDROID_SDK_VERSION="36"
 
 # Node.js version to install via nvm
 NODE_VERSION="lts"
@@ -219,7 +219,7 @@ These have sensible defaults if not set:
 
 - `HOSTNAME_OVERRIDE` (defaults to `SERVER_NAME`)
 - `DOTFILES_REPO` (dotfiles clone skipped if empty)
-- `ANDROID_SDK_VERSION` (defaults to "34")
+- `ANDROID_SDK_VERSION` (defaults to "36")
 - `NODE_VERSION` (defaults to "lts")
 - `XCODE_VERSION` (empty = latest from App Store)
 - `SSH_KEY_ITEM` (defaults to "SSH Keys")

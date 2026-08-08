@@ -99,9 +99,18 @@ check_success() {
 }
 
 # Global npm packages to install
+# NOTE: "n" (Node version manager) is intentionally included to match the
+# asiago reference build server (see issue #38, item 2). It's used by
+# downstream project preflight scripts to switch Node versions; on a box
+# where Node itself is Homebrew-managed, `n` is expected to remain unused
+# for that purpose to avoid it silently taking over /usr/local/bin/node.
 readonly -a GLOBAL_PACKAGES=(
   "eas-cli"
   "npm-check-updates"
+  "n"
+  "netlify-cli"
+  "puppeteer"
+  "url-decode-encode-cli"
 )
 
 # npm global directory
@@ -214,14 +223,25 @@ main() {
   for pkg in "${GLOBAL_PACKAGES[@]}"; do
     # Get the command name (first part before any @version)
     local cmd="${pkg%%@*}"
-    # eas-cli installs as 'eas', npm-check-updates installs as 'ncu'
+    # Map package name to installed command name where they differ.
+    # puppeteer is a library with no CLI binary; verify via node -e instead.
     case "${cmd}" in
       eas-cli) cmd="eas" ;;
       npm-check-updates) cmd="ncu" ;;
+      netlify-cli) cmd="netlify" ;;
+      url-decode-encode-cli) cmd="url-encode" ;;
       *) ;;
     esac
 
-    if command -v "${cmd}" &>/dev/null; then
+    if [[ "${pkg}" == "puppeteer" ]]; then
+      # Global installs aren't on node's default require() path; point
+      # NODE_PATH at the global npm lib dir so require() can find it.
+      if NODE_PATH="${NPM_GLOBAL_DIR}/lib/node_modules" node -e "require('puppeteer')" &>/dev/null; then
+        show_log "OK: ${pkg} (installed)"
+      else
+        collect_error "${pkg} module not found after installation"
+      fi
+    elif command -v "${cmd}" &>/dev/null; then
       local pkg_version
       pkg_version="$("${cmd}" --version 2>/dev/null || echo "installed")"
       show_log "OK: ${pkg} (${pkg_version})"
@@ -229,6 +249,23 @@ main() {
       collect_error "${pkg} command '${cmd}' not found after installation"
     fi
   done
+
+  # eas login hint — informational only, must not fail setup
+  section "Checking EAS Login Status"
+  if command -v eas &>/dev/null; then
+    local eas_whoami_output
+    eas_whoami_output="$(eas whoami 2>&1 || true)"
+    if [[ "${eas_whoami_output}" == *"Not logged in"* ]]; then
+      show_log ""
+      show_log "NOTE: EAS is not logged in. Post-setup checklist:"
+      show_log "  - Run 'eas login' to authenticate with your Expo account"
+      show_log ""
+    else
+      show_log "EAS login: ${eas_whoami_output}"
+    fi
+  else
+    log "eas command not available; skipping EAS login check"
+  fi
 
   if [[ ${#COLLECTED_ERRORS[@]} -gt 0 ]]; then
     show_log ""

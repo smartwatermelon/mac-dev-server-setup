@@ -113,7 +113,7 @@ if [[ ! -f "${CONFIG_FILE}" ]]; then
     printf 'MONITORING_EMAIL=%q\n\n' "${MONITORING_EMAIL}"
     printf '# Development configuration\n'
     printf 'DOTFILES_REPO=%q\n' "${DOTFILES_REPO}"
-    printf 'ANDROID_SDK_VERSION=%q\n' "${ANDROID_SDK_VERSION:-34}"
+    printf 'ANDROID_SDK_VERSION=%q\n' "${ANDROID_SDK_VERSION:-36}"
     printf 'NODE_VERSION=%q\n' "${NODE_VERSION:-lts}"
     printf 'XCODE_VERSION=%q\n\n' "${XCODE_VERSION:-}"
     printf '# Terminal configuration (optional)\n'

@@ -115,7 +115,7 @@ remove_headroom() {
     if sudo rm -f "/Library/LaunchDaemons/${plist_label}.plist" 2>>"${LOG_FILE}"; then
       show_log "Removed headroom proxy LaunchDaemon plist"
     else
-      show_log "WARNING: failed to remove /Library/LaunchDaemons/${plist_label}.plist (sudo required)"
+      collect_error "failed to remove /Library/LaunchDaemons/${plist_label}.plist (sudo required); plist will persist and headroom may respawn on next boot — subsequent runs will retry"
     fi
   fi
 

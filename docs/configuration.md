@@ -20,7 +20,7 @@ SSH_KEY_ITEM="SSH Keys"
 
 # Development configuration
 DOTFILES_REPO="git@github.com:smartwatermelon/dotfiles.git"
-ANDROID_SDK_VERSION="34"
+ANDROID_SDK_VERSION="36"
 NODE_VERSION="lts"
 XCODE_VERSION=""
 
@@ -76,7 +76,7 @@ The system uses 1Password for initial credential retrieval during setup preparat
 
 **ANDROID_SDK_VERSION**: Android SDK platform version to install
 
-- **Default**: "34"
+- **Default**: "36"
 - **Usage**: Installed via Android command-line tools
 - **Example**: `ANDROID_SDK_VERSION="35"`
 
