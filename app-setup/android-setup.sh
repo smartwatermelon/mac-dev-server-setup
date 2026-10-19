@@ -8,7 +8,7 @@
 #
 # Prerequisites:
 # - android-commandlinetools installed via Homebrew
-# - Java (temurin) installed via Homebrew
+# - Java 17 (temurin@17) installed via Homebrew
 #
 # Usage: ./android-setup.sh [--force]
 #   --force: Skip confirmation prompts
@@ -134,7 +134,7 @@ main() {
   # Verify Java is available
   section "Verifying Java Installation"
   if ! command -v java &>/dev/null; then
-    collect_error "Java not found - install temurin via Homebrew first (check formulae.txt)"
+    collect_error "Java not found - install temurin@17 via Homebrew first (check casks.txt)"
     exit 1
   fi
 

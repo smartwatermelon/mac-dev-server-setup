@@ -1,7 +1,9 @@
 # Development
 android-studio
 android-commandlinetools
-temurin
+# React Native compiles every Android module with a JDK 17 toolchain
+# (jvmToolchain(17) in its Gradle plugin), so 17 must be installed.
+temurin@17
 
 # Terminal
 iterm2
