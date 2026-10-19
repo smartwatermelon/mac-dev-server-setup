@@ -8,7 +8,7 @@
 #
 # Prerequisites:
 # - android-commandlinetools installed via Homebrew
-# - Java (temurin) installed via Homebrew
+# - Java 17 (temurin@17) installed via Homebrew
 #
 # Usage: ./android-setup.sh [--force]
 #   --force: Skip confirmation prompts
@@ -133,14 +133,16 @@ main() {
 
   # Verify Java is available
   section "Verifying Java Installation"
-  if ! command -v java &>/dev/null; then
-    collect_error "Java not found - install temurin via Homebrew first (check formulae.txt)"
+  # --failfast: without it, java_home returns the newest JDK, exit 0, when no 17 is installed.
+  local java17_home
+  if ! java17_home="$(/usr/libexec/java_home --failfast -v 17 2>/dev/null)"; then
+    collect_error "JDK 17 not found - install temurin@17 via Homebrew first (check casks.txt)"
     exit 1
   fi
 
   local java_version
-  java_version="$(java -version 2>&1 | head -n 1)"
-  show_log "Java: ${java_version}"
+  java_version="$("${java17_home}/bin/java" -version 2>&1 | head -n 1)"
+  show_log "Java 17: ${java_version} (${java17_home})"
 
   # Determine ANDROID_HOME
   section "Configuring ANDROID_HOME"

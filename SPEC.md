@@ -170,8 +170,8 @@ node
 yarn
 pnpm
 
-# Java (for Android/Gradle)
-temurin
+# Java (for Android/Gradle; React Native pins a JDK 17 toolchain)
+temurin@17
 
 # Python (for various tooling)
 python@3.12
