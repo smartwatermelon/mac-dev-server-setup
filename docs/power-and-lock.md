@@ -13,7 +13,7 @@ Audited on MIMOLETTE (Mac16,10, macOS 27.2) on 2026-11-02.
 | --- | --- | --- | --- |
 | System sleep | `sleep 0` | `pmset` | The server must answer SSH and builds at all times. |
 | Disk sleep | `disksleep 0` | `pmset` | External build volumes stay spun up. |
-| Display sleep | `displaysleep 180` (3 hours) | System Settings → Lock Screen | Lets the monitor rest. Synergy's `preventSleep=true` holds a display-sleep assertion, so the display may not sleep while Synergy runs. See [Known drift](#known-drift). |
+| Display sleep | `displaysleep 180` (3 hours) | System Settings → Lock Screen | Lets the monitor rest. Synergy's `preventSleep=true` holds a display-sleep assertion, so the display may not sleep while Synergy runs. |
 | Standby | `standby 0` | `pmset` | No deep sleep. |
 | Wake on network | `womp 1` | `pmset` | Harmless; nothing sleeps, so it is a fallback only. |
 | Restart after power failure | `autorestart 1` | `pmset` | Comes back after a power cut. |
@@ -85,18 +85,14 @@ Requirements:
 Use `sudo fdesetup authrestart` instead of `sudo shutdown -r now`. It unlocks
 the next boot one time, so the pre-boot screen does not appear.
 
-## Known drift
+## Where the scripts set these
 
-These differences between `scripts/server/` and the audited server are not yet
-resolved:
+- `setup-power-management.sh` sets the `pmset` values, including
+  `displaysleep 180`.
+- `setup-system-preferences.sh` sets the 20-minute screen saver and the
+  immediate password requirement.
 
-- **Display sleep.** `setup-power-management.sh` sets `displaysleep 60`.
-  MIMOLETTE uses `180`.
-- **Password delay.** `setup-system-preferences.sh` writes
-  `askForPasswordDelay 0` with `defaults`. Before the audit, that key read
-  `0` on MIMOLETTE, but `sysadminctl -screenLock status` reported
-  `900 seconds`. The `defaults` write did not set the actual delay. Setting
-  it in System Settings did. `sysadminctl -screenLock immediate -password -`
-  should also work.
-- **Screen saver idle time.** No script sets it. Before the audit it was `0`
-  (never), so the console never locked on idle.
+Do not use `defaults write com.apple.screensaver askForPasswordDelay` to set
+the lock delay. It does not change it: on MIMOLETTE that key read `0` while
+`sysadminctl -screenLock status` reported `900 seconds`. Use
+`sysadminctl -screenLock immediate -password -` or System Settings.
