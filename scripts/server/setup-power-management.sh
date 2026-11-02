@@ -161,9 +161,11 @@ if [[ "${CURRENT_SLEEP}" != "0" ]]; then
   log "Disabled system sleep"
 fi
 
-if [[ "${CURRENT_DISPLAYSLEEP}" != "60" ]]; then
-  sudo -p "[Power management] Enter password to configure display sleep: " pmset -a displaysleep 60 # Display sleeps after 1 hour
-  log "Set display sleep to 60 minutes"
+# Display sleeps after 3 hours. The screen saver (20 minutes, set in
+# setup-system-preferences.sh) locks the console long before this.
+if [[ "${CURRENT_DISPLAYSLEEP}" != "180" ]]; then
+  sudo -p "[Power management] Enter password to configure display sleep: " pmset -a displaysleep 180
+  log "Set display sleep to 180 minutes"
 fi
 
 if [[ "${CURRENT_DISKSLEEP}" != "0" ]]; then
