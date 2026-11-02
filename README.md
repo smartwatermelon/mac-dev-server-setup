@@ -172,6 +172,7 @@ See [Prerequisites Guide](docs/prerequisites.md) for validation commands.
     ├── environment-variables.md
     ├── configuration.md
     ├── keychain-credential-management.md
+    ├── power-and-lock.md
     └── setup/
         ├── prep-airdrop.md
         ├── first-boot.md
@@ -235,6 +236,7 @@ Errors block setup. Warnings are optional stuff that wasn't available. Each mess
 | Building the deployment package | [Prep-AirDrop](docs/setup/prep-airdrop.md) |
 | Running system provisioning | [First Boot](docs/setup/first-boot.md) |
 | How credentials move between machines | [Keychain Management](docs/keychain-credential-management.md) |
+| Sleep, screen lock, and remote wake | [Power and Lock](docs/power-and-lock.md) |
 | Full project roadmap | [SPEC](SPEC.md) |
 
 ## Contributing
