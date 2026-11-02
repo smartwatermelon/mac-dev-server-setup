@@ -166,11 +166,33 @@ log "Fixing Apple's default scroll setting"
 defaults write -g com.apple.swipescrolldirection -bool false
 check_success "Fix scroll setting"
 
-# Configure screen saver password requirement
-section "Configuring screen saver password requirement"
+# Configure screen saver and screen lock
+section "Configuring screen saver and screen lock"
+
+# The server never sleeps, so the 20-minute screen saver is what locks an idle console.
+defaults -currentHost write com.apple.screensaver idleTime -int 1200
+log "Set screen saver to start after 20 minutes idle"
+
 defaults -currentHost write com.apple.screensaver askForPassword -int 1
-defaults -currentHost write com.apple.screensaver askForPasswordDelay -int 0
-log "Enabled immediate password requirement after screen saver"
+
+# The askForPasswordDelay key does not set the lock delay; sysadminctl does (and prompts for the password).
+screen_lock_is_immediate() {
+  local status
+  status="$(sysadminctl -screenLock status 2>&1 || true)"
+  [[ "${status}" == *"screenLock delay is immediate"* ]]
+}
+
+if screen_lock_is_immediate; then
+  log "Screen lock already requires the password immediately"
+else
+  show_log "Setting the screen lock to require the password immediately (enter the account password)"
+  sysadminctl -screenLock immediate -password - || true
+  if screen_lock_is_immediate; then
+    show_log "✅ Screen lock requires the password immediately"
+  else
+    collect_error "Screen lock delay is not immediate. Set System Settings > Lock Screen > Require password to Immediately"
+  fi
+fi
 
 # Run software updates if not skipped
 if [[ "${SKIP_UPDATE}" = false ]]; then
