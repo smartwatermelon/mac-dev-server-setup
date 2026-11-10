@@ -134,5 +134,10 @@ run_case zero-grace 0 1 '' 0
 check "zero grace: notifications" "${NOTIFS}" 1
 check "zero grace: sleeps" "${SLEEPS}" 0
 
+# 08 is invalid octal; it must still be read as 8 seconds and alert.
+run_case leading-zero-grace 0 1 '' 08
+check "leading-zero grace: rc" "${RC}" 0
+check "leading-zero grace: notifications" "${NOTIFS}" 1
+
 echo "ssd-mount-notify: ${PASS} passed, ${FAIL} failed"
 [[ "${FAIL}" -eq 0 ]]

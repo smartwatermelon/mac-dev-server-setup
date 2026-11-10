@@ -57,6 +57,8 @@ main() {
     log "grace (${grace}) and POLL_INTERVAL (${POLL_INTERVAL}) must be integers"
     return 2
   fi
+  # Base 10, so a leading zero (08) is not read as invalid octal.
+  grace=$((10#${grace}))
 
   local expected="${VOLUMES_ROOT}/${volume}"
   # Round up so the last check happens at or after the grace deadline.

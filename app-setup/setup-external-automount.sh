@@ -150,8 +150,8 @@ validate_agent_inputs() {
     show_err "SERVER_NAME has unsupported characters: ${SERVER_NAME}"
     exit 1
   fi
-  if [[ ! "${EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS}" =~ ^[0-9]+$ ]]; then
-    show_err "EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS must be an integer"
+  if [[ ! "${EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS}" =~ ^(0|[1-9][0-9]*)$ ]]; then
+    show_err "EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS must be an integer without leading zeros"
     exit 1
   fi
   if [[ "${HOME}" != /* || "${HOME}" =~ [\&\<\>\|\\] || "${HOME}" == /Volumes/* ]]; then
