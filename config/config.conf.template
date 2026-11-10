@@ -29,6 +29,10 @@ EXTERNAL_STORAGE_VOLUME=""
 #   diskutil info -plist "<volume-name>" | plutil -extract VolumeUUID raw -
 EXTERNAL_STORAGE_UUID=""
 
+# Seconds after GUI login before the missing-SSD notification fires.
+# Blank = 180.
+EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS=""
+
 # Claude Code (optional — leave empty to skip)
 CLAUDE_WRAPPER_REPO=""
 CLAUDE_CONFIG_REPO=""

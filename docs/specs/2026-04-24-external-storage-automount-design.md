@@ -1,9 +1,48 @@
 # Boot-Time Automount for External Development Storage
 
-**Status:** Deployed; simplified post-deploy (see top Design Note)
+**Status:** Deployed; simplified post-deploy; missing-SSD alert added 2026-11-10 (see top Design Notes)
 **Author:** Andrew Rich
 **Date:** 2026-04-24
 **Target machine:** MIMOLETTE (Apple Silicon Mac Mini, macOS 26.4.1)
+
+## Design Note — 2026-11-10 (missing-SSD notification)
+
+The simplification note below dropped "loud on failure" because a
+missing SSD broke every shell, and said the warning would come back if
+that implicit signal proved insufficient. It has: the dotfiles now live
+on the internal disk, so shells start cleanly with the SSD absent. On
+2026-11-10 the SSD did not enumerate at boot and stayed missing until a
+reboot, with nothing to say so.
+
+**New component: a per-user LaunchAgent,
+`com.mac-dev-server.ssd-mount-notify`.** At GUI login (`RunAtLoad`,
+`LimitLoadToSessionType=Aqua`) it runs
+`~/Library/Application Support/mac-dev-server/ssd-mount-notify.sh`. The
+script polls `diskutil info -plist <UUID>` every 10 s for a grace period
+(default 180 s, `EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS`). The volume
+counts as present only when its `MountPoint` is exactly
+`/Volumes/<name>`; a mount at `/Volumes/<name> 1` still breaks
+`~/Developer`. If it is still missing, the script posts one Notification
+Center alert through `osascript` ("SSD <name> is not mounted.
+~/Developer is unavailable.") and exits 0. There is no `KeepAlive`, so
+there is no respawn loop. Log: `~/Library/Logs/ssd-mount-notify.log`.
+
+- **User agent, not the root daemon.** The original design rejected
+  `osascript` notifications as unreliable from a root LaunchDaemon (see
+  "What we do not do"). Notification Center needs the user's GUI
+  session, so the alert runs as a LaunchAgent in `gui/<uid>`. It does
+  not mount anything; the daemon still owns mounting.
+- **Off the SSD.** The script and log are installed on the internal
+  disk. A copy that ran from the repo checkout would vanish with the
+  SSD it watches.
+- **By UUID.** Same identity the daemon uses, discovered by the same
+  `discover_uuid` code path at install time.
+- `setup-external-automount.sh` installs, loads (`launchctl bootstrap
+  gui/<uid>`) and uninstalls the agent with the daemon. Run it as the
+  login user, not under `sudo`. If the bootstrap fails (for example,
+  no GUI session over SSH), the agent stays installed and loads at the
+  next login.
+- Tests: `/bin/bash tests/test-ssd-mount-notify.sh` (fully stubbed).
 
 ## Design Note — 2026-04-24 (post-deploy simplification)
 

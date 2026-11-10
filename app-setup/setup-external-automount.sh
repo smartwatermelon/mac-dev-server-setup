@@ -2,13 +2,13 @@
 #
 # setup-external-automount.sh - Install boot-time SSD automount on target.
 #
-# Creates a LaunchDaemon that mounts the external APFS volume at boot so
-# the dev environment is SSH-accessible without a macOS GUI login.
+# Boot LaunchDaemon mounts the SSD (SSH works without a GUI login); a
+# login LaunchAgent alerts if it is missing. Run as the login user.
 #
 # Flags:
-#   --dry-run       Show what would change; no writes to /Library/
+#   --dry-run       Show what would change; no writes outside a temp dir
 #   --install-only  Install files but do not launchctl bootstrap
-#   --uninstall     Remove the daemon and installed files (incl. legacy)
+#   --uninstall     Remove the daemon, agent and installed files (incl. legacy)
 #
 # Part of mac-dev-server-setup. See:
 #   docs/specs/2026-04-24-external-storage-automount-design.md
@@ -31,6 +31,19 @@ readonly LAUNCHD_LABEL='com.mac-dev-server.automount-external-storage'
 
 # Template path
 readonly TMPL_PLIST="${TEMPLATES_DIR}/com.mac-dev-server.automount-external-storage.plist.template"
+
+# Missing-SSD notifier: per-user LaunchAgent. All paths are on the
+# internal disk, so the agent still runs when the SSD is absent.
+readonly AGENT_LABEL='com.mac-dev-server.ssd-mount-notify'
+GUI_DOMAIN="gui/$(id -u)"
+readonly GUI_DOMAIN
+readonly AGENT_PLIST="${HOME}/Library/LaunchAgents/${AGENT_LABEL}.plist"
+readonly AGENT_SUPPORT_DIR="${HOME}/Library/Application Support/mac-dev-server"
+readonly AGENT_SCRIPT="${AGENT_SUPPORT_DIR}/ssd-mount-notify.sh"
+readonly AGENT_LOG="${HOME}/Library/Logs/ssd-mount-notify.log"
+readonly TMPL_AGENT_PLIST="${TEMPLATES_DIR}/${AGENT_LABEL}.plist.template"
+readonly SRC_AGENT_SCRIPT="${TEMPLATES_DIR}/ssd-mount-notify.sh"
+readonly DEFAULT_NOTIFY_GRACE_SECONDS=180
 
 # Legacy install paths (previous design — kept only for defensive uninstall cleanup)
 readonly LEGACY_SUPPORT_DIR='/Library/Application Support/mac-dev-server'
@@ -73,7 +86,8 @@ show_plan() { printf '   [plan] %s\n' "$*"; }
 
 # --- config loading ---
 load_config() {
-  local conf="${REPO_ROOT}/config/config.conf"
+  # AUTOMOUNT_CONFIG_FILE lets --dry-run be exercised against a temp config.
+  local conf="${AUTOMOUNT_CONFIG_FILE:-${REPO_ROOT}/config/config.conf}"
   if [[ ! -f "${conf}" ]]; then
     show_err "config not found: ${conf}"
     exit 1
@@ -85,6 +99,16 @@ load_config() {
   # this target, skip automount setup entirely." Handled by main() below.
   # Mirrors storage-setup.sh:157-161.
   EXTERNAL_STORAGE_VOLUME="${EXTERNAL_STORAGE_VOLUME:-}"
+  EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS="${EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS:-${DEFAULT_NOTIFY_GRACE_SECONDS}}"
+}
+
+# --- login-user guard (the agent belongs to the GUI user, not root) ---
+verify_login_user() {
+  if [[ "${EUID}" -eq 0 ]]; then
+    show_err "run as the login user, not root/sudo; the script calls sudo itself"
+    show_err "the LaunchAgent must go in that user's ~/Library and gui domain"
+    exit 1
+  fi
 }
 
 # --- hostname guard ---
@@ -101,12 +125,39 @@ verify_on_target() {
 
 # --- prerequisite check ---
 check_prerequisites() {
-  if [[ ! -f "${TMPL_PLIST}" ]]; then
-    show_err "template not found: ${TMPL_PLIST}"
-    exit 1
-  fi
+  local f
+  for f in "${TMPL_PLIST}" "${TMPL_AGENT_PLIST}" "${SRC_AGENT_SCRIPT}"; do
+    if [[ ! -f "${f}" ]]; then
+      show_err "template not found: ${f}"
+      exit 1
+    fi
+  done
   show_log "target plist:  ${TARGET_PLIST}"
   show_log "launchd label: ${LAUNCHD_LABEL}"
+  show_log "agent plist:   ${AGENT_PLIST}"
+  show_log "agent script:  ${AGENT_SCRIPT}"
+}
+
+# --- agent input validation ---
+
+# Values go into XML via sed (| delimiter): reject & < > | and backslash.
+validate_agent_inputs() {
+  if [[ ! "${EXTERNAL_STORAGE_VOLUME}" =~ ^[A-Za-z0-9._\ -]+$ ]]; then
+    show_err "EXTERNAL_STORAGE_VOLUME has unsupported characters: ${EXTERNAL_STORAGE_VOLUME}"
+    exit 1
+  fi
+  if [[ ! "${SERVER_NAME}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    show_err "SERVER_NAME has unsupported characters: ${SERVER_NAME}"
+    exit 1
+  fi
+  if [[ ! "${EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS}" =~ ^[0-9]+$ ]]; then
+    show_err "EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS must be an integer"
+    exit 1
+  fi
+  if [[ "${HOME}" != /* || "${HOME}" =~ [\&\<\>\|\\] || "${HOME}" == /Volumes/* ]]; then
+    show_err "HOME must be an absolute internal-disk path without & < > | \\: ${HOME}"
+    exit 1
+  fi
 }
 
 # --- UUID discovery ---
@@ -148,6 +199,17 @@ render_plist() {
   sed -e "s|{{UUID}}|${uuid}|g" "${TMPL_PLIST}"
 }
 
+render_agent_plist() {
+  local uuid="$1"
+  sed -e "s|{{SCRIPT_PATH}}|${AGENT_SCRIPT}|g" \
+    -e "s|{{UUID}}|${uuid}|g" \
+    -e "s|{{VOLUME}}|${EXTERNAL_STORAGE_VOLUME}|g" \
+    -e "s|{{GRACE_SECONDS}}|${EXTERNAL_STORAGE_NOTIFY_GRACE_SECONDS}|g" \
+    -e "s|{{TITLE}}|${SERVER_NAME}|g" \
+    -e "s|{{LOG_PATH}}|${AGENT_LOG}|g" \
+    "${TMPL_AGENT_PLIST}"
+}
+
 # --- static validation ---
 validate_plist() {
   local file="$1"
@@ -169,15 +231,24 @@ do_dry_run() {
 
   render_plist "${uuid}" >"${_DRY_RUN_TMPDIR}/rendered.plist"
   validate_plist "${_DRY_RUN_TMPDIR}/rendered.plist"
+  render_agent_plist "${uuid}" >"${_DRY_RUN_TMPDIR}/agent.plist"
+  validate_plist "${_DRY_RUN_TMPDIR}/agent.plist"
+  bash -n "${SRC_AGENT_SCRIPT}"
 
-  show_log "dry-run: rendered plist passes plutil -lint"
+  show_log "dry-run: rendered plists pass plutil -lint; agent script passes bash -n"
   echo
   show_plan "would install (root:wheel 0644):"
   show_plan "   ${TARGET_PLIST}"
   show_plan "would run: sudo launchctl bootstrap system ${TARGET_PLIST}"
+  show_plan "would install (user, 0755): ${AGENT_SCRIPT}"
+  show_plan "would install (user, 0644): ${AGENT_PLIST}"
+  show_plan "would run: launchctl bootstrap ${GUI_DOMAIN} ${AGENT_PLIST}"
   echo
   show_plan "rendered plist:"
   sed 's/^/      /' "${_DRY_RUN_TMPDIR}/rendered.plist"
+  echo
+  show_plan "rendered agent plist:"
+  sed 's/^/      /' "${_DRY_RUN_TMPDIR}/agent.plist"
 }
 
 # --- install-only (files, no launchctl) ---
@@ -197,6 +268,35 @@ do_install_only() {
   sudo /usr/bin/install -o root -g wheel -m 0644 \
     "${_INSTALL_TMPDIR}/rendered.plist" "${TARGET_PLIST}"
   show_log "installed ${TARGET_PLIST}"
+
+  render_agent_plist "${uuid}" >"${_INSTALL_TMPDIR}/agent.plist"
+  validate_plist "${_INSTALL_TMPDIR}/agent.plist"
+  bash -n "${SRC_AGENT_SCRIPT}"
+  /bin/mkdir -p "${AGENT_SUPPORT_DIR}" "${HOME}/Library/LaunchAgents" "${HOME}/Library/Logs"
+  /usr/bin/install -m 0755 "${SRC_AGENT_SCRIPT}" "${AGENT_SCRIPT}"
+  /usr/bin/install -m 0644 "${_INSTALL_TMPDIR}/agent.plist" "${AGENT_PLIST}"
+  show_log "installed ${AGENT_SCRIPT}"
+  show_log "installed ${AGENT_PLIST}"
+}
+
+# --- agent load (user gui domain) ---
+agent_loaded() {
+  /bin/launchctl print "${GUI_DOMAIN}/${AGENT_LABEL}" >/dev/null 2>&1
+}
+
+# Not fatal: the plist in ~/Library/LaunchAgents loads at next GUI login.
+load_agent() {
+  local domain="${GUI_DOMAIN}"
+  if agent_loaded; then
+    show_log "agent already loaded; booting out before re-bootstrap"
+    /bin/launchctl bootout "${domain}/${AGENT_LABEL}" || true
+  fi
+  if /bin/launchctl bootstrap "${domain}" "${AGENT_PLIST}"; then
+    show_log "agent loaded: ${AGENT_LABEL} (runs now and at each login)"
+  else
+    show_err "launchctl bootstrap ${domain} failed (no GUI session?);"
+    show_err "agent stays installed and loads at next GUI login"
+  fi
 }
 
 # --- rollback on bootstrap failure ---
@@ -240,6 +340,7 @@ do_install() {
     exit 1
   fi
   show_log "daemon loaded: ${LAUNCHD_LABEL}"
+  load_agent
   show_log "install complete"
 }
 
@@ -262,6 +363,22 @@ do_uninstall() {
     sudo /bin/rm -f "${TARGET_PLIST}"
     show_log "removed ${TARGET_PLIST}"
   fi
+
+  # Missing-SSD notifier agent (user-owned; no sudo).
+  if agent_loaded; then
+    show_log "booting out ${AGENT_LABEL}"
+    /bin/launchctl bootout "${GUI_DOMAIN}/${AGENT_LABEL}" || {
+      show_err "agent bootout failed; continuing to remove files"
+    }
+  fi
+  local f
+  for f in "${AGENT_PLIST}" "${AGENT_SCRIPT}"; do
+    if [[ -f "${f}" ]]; then
+      /bin/rm -f "${f}"
+      show_log "removed ${f}"
+    fi
+  done
+  /bin/rmdir "${AGENT_SUPPORT_DIR}" 2>/dev/null || true
 
   # Legacy cleanup: previous design installed a helper script, conf file,
   # /etc/profile banner block, and a /var/run flag. Clear any stragglers.
@@ -325,6 +442,9 @@ main() {
   fi
 
   verify_on_target
+  if [[ "${MODE}" != 'dry-run' ]]; then
+    verify_login_user
+  fi
 
   if [[ "${MODE}" == 'uninstall' ]]; then
     do_uninstall
@@ -332,6 +452,7 @@ main() {
   fi
 
   check_prerequisites
+  validate_agent_inputs
 
   local uuid
   uuid="$(discover_uuid "${EXTERNAL_STORAGE_VOLUME}")"
