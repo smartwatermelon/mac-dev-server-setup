@@ -139,7 +139,11 @@ See [Prerequisites Guide](docs/prerequisites.md) for validation commands.
 │   ├── android-setup.sh          # SDK components, licenses, ANDROID_HOME
 │   ├── dotfiles-setup.sh         # Clone repo, run install script
 │   ├── claude-setup.sh           # CLI, plugins, MCP servers, post-push-loop
-│   └── storage-setup.sh          # External storage configuration
+│   ├── storage-setup.sh          # External storage configuration
+│   ├── setup-external-automount.sh # SSD boot automount + missing-SSD login alert
+│   └── templates/                # LaunchDaemon/LaunchAgent plists, ssd-mount-notify.sh
+├── tests/
+│   └── test-ssd-mount-notify.sh  # Stubbed test: /bin/bash tests/test-ssd-mount-notify.sh
 ├── scripts/
 │   └── server/
 │       ├── first-boot.sh          # Main provisioning script (15+ modules)
